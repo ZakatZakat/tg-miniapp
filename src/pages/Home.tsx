@@ -1,198 +1,140 @@
 import * as React from "react"
-import { Badge, Box, Button, Flex, Stack, Text } from "@chakra-ui/react"
-import { ProgressRoot, ProgressTrack, ProgressRange } from "@chakra-ui/react/progress"
-import { TagRoot, TagLabel } from "@chakra-ui/react/tag"
+import { Box, Flex, Stack, Text, Button, Badge } from "@chakra-ui/react"
 
-type EventCard = {
-  id: string
-  title: string
-  description?: string | null
-  channel: string
-  message_id: number
-  event_time?: string | null
-  location?: string | null
-  price?: string | null
-  category?: string | null
-  source_link?: string | null
-  created_at: string
-}
+type CardMock = { title: string; subtitle: string; price?: string; tag?: string; color: string }
 
-const API_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
-
-const MOCK_EVENTS: EventCard[] = [
-  {
-    id: "mock-1",
-    title: "Концерт на крыше",
-    description: "Живой сет, инди и электроника. Старт в 20:00.",
-    channel: "@gzsmsk",
-    message_id: 1,
-    event_time: new Date().toISOString(),
-    location: "Москва, Арбат 1",
-    price: "1000 ₽",
-    category: "музыка",
-    source_link: "https://t.me/gzsmsk",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "mock-2",
-    title: "Выставка современного искусства",
-    description: "Небольшая экспозиция + лекция куратора. 12:00–21:00.",
-    channel: "@gzsmsk",
-    message_id: 2,
-    event_time: new Date(Date.now() + 86400000).toISOString(),
-    location: "Москва, ARTPLAY",
-    price: "Бесплатно",
-    category: "выставки",
-    source_link: "https://t.me/gzsmsk",
-    created_at: new Date().toISOString(),
-  },
+const mockPicks: CardMock[] = [
+  { title: "Комик Con 2022", subtitle: "Мвц Экспо, 21 ноября", price: "от 3 000 ₽", tag: "Фестиваль", color: "#FFEAB6" },
+  { title: "Beach House", subtitle: "Крокус Сити Холл, 28 дек • 19:00", price: "от 3 000 ₽", tag: "Концерты", color: "#FFB4A8" },
+  { title: "Лучшие выставки", subtitle: "Августа", price: "бесплатно", tag: "Выбор редакции", color: "#B7FFD4" },
 ]
 
-const formatDate = (value?: string | null) => {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleString()
-}
-
 export default function Home() {
-  const [events, setEvents] = React.useState<EventCard[]>(MOCK_EVENTS)
-  const [error, setError] = React.useState<string | null>(null)
-  const [loading, setLoading] = React.useState(false)
-  const [seen, setSeen] = React.useState(0)
-
-  const current = events[0]
-
-  const loadFromApi = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`${API_URL}/events`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as EventCard[]
-      if (Array.isArray(data) && data.length > 0) {
-        setEvents(data)
-        setSeen(0)
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void loadFromApi()
-  }, [loadFromApi])
-
-  const pop = React.useCallback(() => {
-    setEvents((prev) => prev.slice(1))
-    setSeen((prev) => prev + 1)
-  }, [])
-
-  const onAction = (_action: "like" | "skip" | "save") => {
-    if (!current) return
-    pop()
-  }
-
-  const progress = React.useMemo(() => {
-    const total = Math.max(seen + events.length, 1)
-    return (seen / total) * 100
-  }, [seen, events.length])
-
   return (
-    <Stack gap="4" py="6">
-      <Flex align="center" gap="2">
-        <Text fontSize="lg" fontWeight="semibold">
-          Афиша
-        </Text>
-        <Badge variant="subtle">Москва</Badge>
-        <Box flex="1" />
-        <Button size="sm" variant="subtle" onClick={loadFromApi} isLoading={loading}>
-          Обновить
-        </Button>
-        <Button size="sm" variant="outline" isDisabled>
-          Фильтры
-        </Button>
-      </Flex>
+    <Box
+      minH="100vh"
+      bg="linear-gradient(180deg, #E8ECF5 0%, #F6F3EF 60%, #F6F3EF 100%)"
+      color="#0F0F0F"
+      fontFamily="system-ui"
+      pb="10"
+    >
+      <Stack gap="6" px="3" pt="5" maxW="430px" mx="auto">
+        {/* Header */}
+        <Stack gap="2">
+          <Text fontSize="xl" fontWeight="bold" letterSpacing="wide">
+            EVENT FINDER APP
+          </Text>
+          <Badge bg="#111" color="white" px="3" py="1.5" borderRadius="full" width="fit-content">
+            UX/UI DESIGN
+          </Badge>
+        </Stack>
 
-      {error && (
-        <Box borderWidth="1px" borderColor="red.400" borderRadius="md" p="3">
-          <Text color="red.300">Ошибка: {error}</Text>
-        </Box>
-      )}
-
-      {!current ? (
-        <Box borderWidth="1px" borderRadius="md" p="4">
-          <Text>Карточки закончились. Обнови ленту.</Text>
-        </Box>
-      ) : (
-        <Box borderWidth="1px" borderRadius="xl" overflow="hidden">
-          <Box bgGradient="linear(to-r, purple.700, teal.600)" p="4" color="white">
-            <Flex align="center" gap="2" wrap="wrap">
-              <Text fontWeight="semibold" fontSize="lg">
-                {current.title}
-              </Text>
-              <Box flex="1" />
-              <TagRoot size="sm" variant="solid" colorPalette="blackAlpha">
-                <TagLabel>{current.channel.replace(/^@/, "")}</TagLabel>
-              </TagRoot>
-            </Flex>
-            <Flex mt="2" gap="2" wrap="wrap" opacity={0.9}>
-              {current.category && (
-                <TagRoot size="sm">
-                  <TagLabel>{current.category}</TagLabel>
-                </TagRoot>
-              )}
-              {formatDate(current.event_time) && (
-                <TagRoot size="sm">
-                  <TagLabel>{formatDate(current.event_time)}</TagLabel>
-                </TagRoot>
-              )}
-              {current.location && (
-                <TagRoot size="sm">
-                  <TagLabel>{current.location}</TagLabel>
-                </TagRoot>
-              )}
-              {current.price && (
-                <TagRoot size="sm">
-                  <TagLabel>{current.price}</TagLabel>
-                </TagRoot>
-              )}
-            </Flex>
-          </Box>
-
-          <Box p="4">
-            <Text whiteSpace="pre-wrap" color="fg.muted">
-              {current.description ?? "Без описания"}
+        {/* Hero card */}
+        <Box
+          position="relative"
+          overflow="hidden"
+          borderRadius="xl"
+          bg="#B8D7FF"
+          p="5"
+          minH="320px"
+          border="2px solid #0F0F0F"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Box
+            position="absolute"
+            inset="0"
+            pointerEvents="none"
+            opacity={0.2}
+            bg="radial-gradient(circle at 20% 20%, #fff 0, transparent 30%), radial-gradient(circle at 80% 30%, #fff 0, transparent 25%), radial-gradient(circle at 40% 70%, #fff 0, transparent 30%)"
+          />
+          <Stack
+            gap="4"
+            w="260px"
+            bg="rgba(255,255,255,0.9)"
+            borderRadius="2xl"
+            p="5"
+            border="1px solid #0F0F0F"
+            alignItems="center"
+            textAlign="center"
+          >
+            <Text fontSize="lg" fontWeight="bold" letterSpacing="wide">
+              LAZY
             </Text>
-
-            <Flex mt="4" gap="3">
-              <Button flex="1" variant="outline" onClick={() => onAction("skip")}>
-                Скип
-              </Button>
-              <Button flex="1" variant="subtle" onClick={() => onAction("save")}>
-                Сохранить
-              </Button>
-              <Button flex="1" variant="solid" onClick={() => onAction("like")}>
-                Нравится
-              </Button>
+            <Text fontSize="sm" color="#2d2d2d">
+              Сервис для поиска самых крутых мероприятий
+            </Text>
+            <Button bg="#0F0F0F" color="white" _hover={{ bg: "#1c1c1c" }} borderRadius="full">
+              Войти
+            </Button>
+            <Text fontSize="xs" color="#4a4a4a">
+              Или войти через
+            </Text>
+            <Flex gap="2">
+              {["F", "vk", "tg", "m", ""].map((s) => (
+                <Box
+                  key={s}
+                  w="9"
+                  h="9"
+                  borderRadius="full"
+                  border="1px solid #0F0F0F"
+                  bg="white"
+                  display="grid"
+                  placeItems="center"
+                  fontSize="xs"
+                >
+                  {s}
+                </Box>
+              ))}
             </Flex>
-          </Box>
+            <Text fontSize="xs" color="#4a4a4a">
+              Еще нет аккаунта? <u>Зарегистрируйтесь</u>
+            </Text>
+          </Stack>
         </Box>
-      )}
 
-      <Stack gap="2">
-        <ProgressRoot value={progress} size="sm">
-          <ProgressTrack>
-            <ProgressRange />
-          </ProgressTrack>
-        </ProgressRoot>
-        <Text fontSize="sm" color="fg.muted">
-          Просмотрено: {seen} • В очереди: {events.length}
-        </Text>
+        {/* Picks */}
+        <Stack gap="3">
+          <Flex align="center" gap="2">
+            <Text fontSize="lg" fontWeight="semibold">
+              Для тебя
+            </Text>
+            <Badge borderRadius="full" px="3" py="1" bg="#111" color="white">
+              Москва
+            </Badge>
+          </Flex>
+          <Stack gap="3">
+            {mockPicks.map((card, idx) => (
+              <Box key={idx} border="2px solid #0F0F0F" borderRadius="xl" bg={card.color} p="4" boxShadow="sm">
+                <Flex justify="space-between" align="center" mb="2">
+                  <Badge borderRadius="full" px="3" py="1" bg="#0F0F0F" color="white" textTransform="none">
+                    {card.tag}
+                  </Badge>
+                  {card.price && (
+                    <Badge borderRadius="full" px="3" py="1" bg="white" color="#0F0F0F" border="1px solid #0F0F0F" textTransform="none">
+                      {card.price}
+                    </Badge>
+                  )}
+                </Flex>
+                <Text fontWeight="bold">{card.title}</Text>
+                <Text fontSize="sm" mt="1" color="#222">
+                  {card.subtitle}
+                </Text>
+              </Box>
+            ))}
+          </Stack>
+        </Stack>
+
+        {/* About block */}
+        <Stack gap="2" border="2px solid #0F0F0F" borderRadius="xl" p="4" bg="white">
+          <Text fontWeight="bold">О проекте</Text>
+          <Text fontSize="sm" color="#2d2d2d">
+            Помогаем найти куда сходить: концерты, выставки, вечеринки и лучшие события Москвы. Отбираем по интересам, дате и стоимости.
+          </Text>
+        </Stack>
       </Stack>
-    </Stack>
+    </Box>
   )
 }
 
