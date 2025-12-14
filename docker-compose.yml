@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    working_dir: /app
+    # ports:
+    #   - "5173:5173"
+    environment:
+      NODE_ENV: development
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.constraint-label=traefik-public
+      - traefik.http.services.tgapp-frontend.loadbalancer.server.port=5173
+
+      - traefik.http.routers.tgapp-frontend-http.rule=Host(`tgapp.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.tgapp-frontend-http.entrypoints=http
+
+      - traefik.http.routers.tgapp-frontend-https.rule=Host(`tgapp.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.tgapp-frontend-https.entrypoints=https
+      - traefik.http.routers.tgapp-frontend-https.tls=true
+      - traefik.http.routers.tgapp-frontend-https.tls.certresolver=le
+
+      # Enable redirection for HTTP and HTTPS
+      - traefik.http.routers.tgapp-frontend-http.middlewares=https-redirect
+
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    # Allow setting it to false for testing
+    external: true
