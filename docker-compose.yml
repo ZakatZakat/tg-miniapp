@@ -28,6 +28,33 @@ services:
     networks:
       - traefik-public
 
+  api:
+    build:
+      context: ./backend
+    working_dir: /app
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHANNEL_IDS: ${TELEGRAM_CHANNEL_IDS}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      REDIS_URL: ${REDIS_URL}
+      POSTGRES_DSN: ${POSTGRES_DSN}
+      BOT_POLLING_INTERVAL: ${BOT_POLLING_INTERVAL}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    networks:
+      - traefik-public
+
+  redis:
+    image: redis:7
+    networks:
+      - traefik-public
+
 networks:
   traefik-public:
     # Allow setting it to false for testing
