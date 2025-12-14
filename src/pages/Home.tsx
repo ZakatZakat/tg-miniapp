@@ -1,197 +1,143 @@
 // src/pages/Home.tsx
 import * as React from "react"
-import { Button, Card, Heading, Stack, Text } from "@chakra-ui/react"
-import { Link } from "@tanstack/react-router"
+import { Badge, Button, Card, Flex, Heading, Skeleton, Stack, Tag, Text } from "@chakra-ui/react"
 
-type TelegramUser = {
-  id: number
-  firstName: string
-  lastName?: string
-  username?: string
+type EventCard = {
+  id: string
+  title: string
+  description?: string | null
+  channel: string
+  message_id: number
+  event_time?: string | null
+  location?: string | null
+  price?: string | null
+  category?: string | null
+  source_link?: string | null
+  created_at: string
 }
 
-const decodeComponent = (value: string): string => {
-  let current = value
-  for (let attempts = 0; attempts < 5; attempts += 1) {
-    if (!/%[0-9a-fA-F]{2}/.test(current)) break
-    try {
-      const next = decodeURIComponent(current)
-      if (next === current) break
-      current = next
-    } catch {
-      break
-    }
-  }
-  return current
-}
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 
-const extractTelegramUser = (): TelegramUser | null => {
-  if (typeof window === "undefined") return null
-  const webApp = window.Telegram?.WebApp
-  const parseUser = (payload: unknown): TelegramUser | null => {
-    if (!payload || typeof payload !== "object") return null
-    const raw = payload as Record<string, unknown>
-    const id = Number(raw.id)
-    const firstName = typeof raw.first_name === "string" ? raw.first_name : undefined
-    if (!Number.isFinite(id) || !firstName) return null
-    return {
-      id,
-      firstName,
-      lastName: typeof raw.last_name === "string" ? raw.last_name : undefined,
-      username: typeof raw.username === "string" ? raw.username : undefined,
-    }
-  }
-
-  if (webApp) {
-    const unsafeUser = webApp.initDataUnsafe?.user
-    const parsedUnsafe = parseUser(unsafeUser)
-    if (parsedUnsafe) return parsedUnsafe
-
-    const rawInitData = webApp.initData
-    if (rawInitData) {
-      const params = new URLSearchParams(rawInitData)
-      const userParam = params.get("user")
-
-      if (userParam) {
-        try {
-          const parsed = JSON.parse(userParam)
-          const fromInitData = parseUser(parsed)
-          if (fromInitData) return fromInitData
-        } catch (error) {
-          console.warn("Failed to parse Telegram user from initData", error)
-        }
-      }
-    }
-  }
-
-  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash
-  const hashParams = new URLSearchParams(hash)
-  const tgWebAppDataRaw = hashParams.get("tgWebAppData")
-  const tgWebAppData = tgWebAppDataRaw ? decodeComponent(tgWebAppDataRaw) : null
-  if (!tgWebAppData) return null
-
-  try {
-    const nestedParams = new URLSearchParams(tgWebAppData)
-    const nestedUser = nestedParams.get("user")
-    if (!nestedUser) return null
-    const parsed = JSON.parse(decodeComponent(nestedUser))
-    return parseUser(parsed)
-  } catch (error) {
-    console.warn("Failed to parse Telegram user from tgWebAppData", error)
-    return null
-  }
-
-  return null
+const formatDate = (value?: string | null) => {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleString()
 }
 
 export default function Home() {
-  const [user, setUser] = React.useState<TelegramUser | null>(() => extractTelegramUser())
-  const [debugData, setDebugData] = React.useState<{
-    initDataUnsafe: string
-    initData: string
-    locationHash: string
-    tgWebAppDataRaw: string
-    tgWebAppDataDecoded: string
-    telegramAvailable: boolean
-  }>(() => ({
-    initDataUnsafe: "",
-    initData: "",
-    locationHash: "",
-    tgWebAppDataRaw: "",
-    tgWebAppDataDecoded: "",
-    telegramAvailable: typeof window !== "undefined" ? Boolean(window.Telegram?.WebApp) : false,
-  }))
+  const [events, setEvents] = React.useState<EventCard[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (user) return
-    const timer = window.setInterval(() => {
-      const nextUser = extractTelegramUser()
-      if (!nextUser) return
-      setUser(nextUser)
-      window.clearInterval(timer)
-    }, 500)
-
-    return () => window.clearInterval(timer)
-  }, [user])
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return
-    const webApp = window.Telegram?.WebApp
-    const hash = window.location.hash
-    const trimmedHash = hash.startsWith("#") ? hash.slice(1) : hash
-    const hashParams = new URLSearchParams(trimmedHash)
-    const tgWebAppDataRaw = hashParams.get("tgWebAppData") ?? ""
-    const tgWebAppDataDecoded = tgWebAppDataRaw ? decodeComponent(tgWebAppDataRaw) : ""
-
-    setDebugData({
-      initDataUnsafe: JSON.stringify(webApp?.initDataUnsafe, null, 2),
-      initData: webApp?.initData ?? "",
-      locationHash: hash,
-      tgWebAppDataRaw,
-      tgWebAppDataDecoded,
-      telegramAvailable: Boolean(webApp),
-    })
+    const controller = new AbortController()
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`${API_URL}/events`, { signal: controller.signal })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data: EventCard[] = await res.json()
+        setEvents(data)
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }
+    void load()
+    return () => controller.abort()
   }, [])
 
-  const displayName = React.useMemo(() => {
-    if (!user) return null
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
-    if (fullName) return fullName
-    if (user.username) return `@${user.username}`
-    return `ID ${user.id}`
-  }, [user])
+  const current = events[0]
+
+  const popCard = React.useCallback((nextEvents: EventCard[]) => {
+    setEvents(nextEvents.slice(1))
+  }, [])
+
+  const handleAction = (action: "like" | "skip" | "save") => {
+    if (!current) return
+    // TODO: send action to backend when endpoints are ready
+    popCard(events)
+  }
 
   return (
     <Stack gap="4" py="6">
-      <Heading size="lg">{displayName ? `Привет, ${displayName}!` : "Привет из Telegram 👋"}</Heading>
-      <Card.Root>
-        <Card.Body>
-          <Text>
-            {user
-              ? `Ваш Telegram ID: ${user.id}${user.username ? ` (@${user.username})` : ""}.`
-              : "Откройте приложение из Telegram, чтобы увидеть персональное обращение."}
-          </Text>
-          <Text mt="2">Chakra v3 + TanStack Router + Telegram WebApp.</Text>
-        </Card.Body>
-      </Card.Root>
-      <Card.Root>
-        <Card.Header>
-          <Heading size="md">Debug info</Heading>
-        </Card.Header>
-        <Card.Body>
-          <Text fontSize="sm" whiteSpace="pre-wrap">
-            initDataUnsafe:
-            {"\n"}
-            {debugData.initDataUnsafe || "<empty>"}
-          </Text>
-          <Text fontSize="sm" whiteSpace="pre-wrap" mt="3">
-            initData:
-            {"\n"}
-            {debugData.initData || "<empty>"}
-          </Text>
-          <Text fontSize="sm" whiteSpace="pre-wrap" mt="3">
-            location.hash:
-            {"\n"}
-            {debugData.locationHash || "<empty>"}
-          </Text>
-          <Text fontSize="sm" whiteSpace="pre-wrap" mt="3">
-            tgWebAppData (raw):
-            {"\n"}
-            {debugData.tgWebAppDataRaw || "<empty>"}
-          </Text>
-          <Text fontSize="sm" whiteSpace="pre-wrap" mt="3">
-            tgWebAppData (decoded):
-            {"\n"}
-            {debugData.tgWebAppDataDecoded || "<empty>"}
-          </Text>
-          <Text fontSize="sm" mt="3">
-            Telegram.WebApp detected: {debugData.telegramAvailable ? "yes" : "no"}
-          </Text>
-        </Card.Body>
-      </Card.Root>
-      <Button asChild variant="solid">
-        <Link to="/about">Go to About</Link>
-      </Button>
+      <Heading size="lg">Афиша Москвы</Heading>
+      {error && (
+        <Card.Root borderColor="red.400">
+          <Card.Body>
+            <Text color="red.300">Ошибка загрузки: {error}</Text>
+          </Card.Body>
+        </Card.Root>
+      )}
+
+      {loading && (
+        <Card.Root>
+          <Card.Body>
+            <Stack gap="3">
+              <Skeleton height="24px" />
+              <Skeleton height="60px" />
+              <Skeleton height="18px" />
+            </Stack>
+          </Card.Body>
+        </Card.Root>
+      )}
+
+      {!loading && !current && (
+        <Card.Root>
+          <Card.Body>
+            <Text>Карточки закончились. Обнови позже.</Text>
+          </Card.Body>
+        </Card.Root>
+      )}
+
+      {current && (
+        <Card.Root>
+          <Card.Header>
+            <Flex align="center" gap="2" wrap="wrap">
+              <Heading size="md" flex="1">
+                {current.title}
+              </Heading>
+              <Badge colorPalette="blue">@{current.channel.replace(/^@/, "")}</Badge>
+              {current.category && <Tag size="sm">{current.category}</Tag>}
+            </Flex>
+          </Card.Header>
+          <Card.Body>
+            {current.event_time && (
+              <Text fontSize="sm" color="fg.muted" mb="2">
+                {formatDate(current.event_time)}
+              </Text>
+            )}
+            {current.location && (
+              <Text fontSize="sm" color="fg.muted" mb="2">
+                {current.location}
+              </Text>
+            )}
+            <Text whiteSpace="pre-wrap">{current.description || "Без описания"}</Text>
+            {current.price && (
+              <Text mt="2" fontWeight="semibold">
+                {current.price}
+              </Text>
+            )}
+          </Card.Body>
+          <Card.Footer>
+            <Flex gap="3" w="100%">
+              <Button variant="outline" flex="1" onClick={() => handleAction("skip")}>
+                Скип
+              </Button>
+              <Button variant="subtle" flex="1" onClick={() => handleAction("save")}>
+                Сохранить
+              </Button>
+              <Button variant="solid" flex="1" onClick={() => handleAction("like")}>
+                Нравится
+              </Button>
+            </Flex>
+          </Card.Footer>
+        </Card.Root>
+      )}
     </Stack>
   )
 }

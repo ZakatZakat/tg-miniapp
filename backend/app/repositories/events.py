@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterable
+from typing import Protocol
 from uuid import uuid4
 
 from app.schemas import EventCard, EventIngestRequest
 
 
-class InMemoryEventsRepository:
+class EventsRepository(Protocol):
+    async def upsert(self, request: EventIngestRequest) -> EventCard: ...
+
+    async def list_recent(self, limit: int = 50) -> list[EventCard]: ...
+
+
+class InMemoryEventsRepository(EventsRepository):
     def __init__(self) -> None:
         self._store: dict[str, EventCard] = {}
 
-    def upsert(self, request: EventIngestRequest) -> EventCard:
+    async def upsert(self, request: EventIngestRequest) -> EventCard:
         existing = self._find_by_channel_msg(request.channel, request.message_id)
         if existing:
             return existing
@@ -32,7 +38,7 @@ class InMemoryEventsRepository:
         self._store[event_id] = card
         return card
 
-    def list_recent(self, limit: int = 50) -> list[EventCard]:
+    async def list_recent(self, limit: int = 50) -> list[EventCard]:
         return sorted(self._store.values(), key=lambda item: item.created_at, reverse=True)[:limit]
 
     def _find_by_channel_msg(self, channel: str, message_id: int) -> EventCard | None:

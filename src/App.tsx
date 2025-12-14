@@ -2,7 +2,7 @@
 import * as React from "react"
 import { Outlet } from "@tanstack/react-router"
 import { Box, Container, Flex, Heading, Spacer } from "@chakra-ui/react"
-import { ColorModeButton, useColorMode, useColorModeValue } from "./components/ui/colore-mode"
+import { ColorModeButton, useColorMode, useColorModeValue } from "./components/ui/color-mode"
 
 declare global {
   interface Window { Telegram?: { WebApp?: any } }
