@@ -1,7 +1,8 @@
 // src/App.tsx
 import * as React from "react"
 import { Outlet } from "@tanstack/react-router"
-import { Box, Container, Flex, Heading, Spacer } from "@chakra-ui/react"
+import { Box, Container, Flex, Heading, Spacer, Link } from "@chakra-ui/react"
+import { Link as RouterLink } from "@tanstack/react-router"
 import { ColorModeButton, useColorMode, useColorModeValue } from "./components/ui/color-mode"
 
 declare global {
@@ -30,6 +31,17 @@ export default function App() {
       <Container maxW="container.md" py="4">
         <Flex align="center" gap="4">
           <Heading size="md">Telegram Mini App</Heading>
+          <Flex gap="3">
+            <Link asChild>
+              <RouterLink to="/">Landing</RouterLink>
+            </Link>
+            <Link asChild>
+              <RouterLink to="/feed">Feed</RouterLink>
+            </Link>
+            <Link asChild>
+              <RouterLink to="/about">About</RouterLink>
+            </Link>
+          </Flex>
           <Spacer />
           <ColorModeButton />
         </Flex>
