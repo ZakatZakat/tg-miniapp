@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, String, Text, UniqueConstraint, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -23,6 +23,7 @@ class Event(Base):
     channel: Mapped[str] = mapped_column(String(128), index=True)
     message_id: Mapped[int] = mapped_column(index=True)
     event_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    media_urls: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     price: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)

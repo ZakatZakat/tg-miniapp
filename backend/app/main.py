@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import asyncio
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings
 from app.db import create_engine, create_session_maker
@@ -20,6 +22,8 @@ logging.basicConfig(level=logging.INFO)
 
 settings = Settings()
 app = FastAPI(title="tg-miniapp-backend")
+MEDIA_ROOT = Path(__file__).resolve().parents[1] / "media"
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,7 +52,7 @@ async def startup_event() -> None:
         events_repo = InMemoryEventsRepository()
     app.state.events_repo = events_repo
 
-    if settings.telegram_channel_ids and settings.telegram_bot_token:
+    if settings.telegram_channel_ids and (settings.telegram_bot_token or settings.telegram_session_string):
         ingestor = TelegramIngestor(settings=settings, repo=events_repo)
         service = TelegramPollingService(ingestor=ingestor, interval_seconds=settings.bot_polling_interval)
         polling_service = service
@@ -67,4 +71,6 @@ async def shutdown_event() -> None:
 
 app.include_router(health.router)
 app.include_router(events.router)
+
+app.mount("/media", StaticFiles(directory=MEDIA_ROOT, html=False), name="media")
 

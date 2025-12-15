@@ -13,6 +13,7 @@ class EventCard(BaseModel):
     channel: str
     message_id: int
     event_time: Optional[datetime] = None
+    media_urls: list[str] = []
     location: Optional[str] = None
     price: Optional[str] = None
     category: Optional[str] = None
@@ -24,6 +25,6 @@ class EventIngestRequest(BaseModel):
     channel: str
     message_id: int
     text: str
-    media_urls: list[HttpUrl] = []
+    media_urls: list[str] = []
     published_at: Optional[datetime] = None
 

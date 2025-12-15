@@ -19,6 +19,9 @@ class PostgresEventsRepository:
         async with self._session_factory() as session:
             existing = await self._find_by_channel_msg(session, request.channel, request.message_id)
             if existing:
+                if not existing.media_urls and request.media_urls:
+                    existing.media_urls = request.media_urls
+                    await session.commit()
                 return self._to_card(existing)
             event = Event(
                 id=uuid4().hex,
@@ -27,6 +30,7 @@ class PostgresEventsRepository:
                 channel=request.channel,
                 message_id=request.message_id,
                 event_time=request.published_at,
+                media_urls=request.media_urls,
                 location=None,
                 price=None,
                 category=None,
@@ -58,6 +62,7 @@ class PostgresEventsRepository:
             channel=event.channel,
             message_id=event.message_id,
             event_time=event.event_time,
+            media_urls=event.media_urls,
             location=event.location,
             price=event.price,
             category=event.category,
