@@ -12,20 +12,36 @@ type EventCard = {
   created_at: string
 }
 
+type TelegramCreds = {
+  login_mode: string
+  channel_ids: string[]
+  api_id: number
+  api_hash_masked: string
+  bot_token_masked?: string | null
+}
+
 const palette = ["#F9D7C3", "#FFEAB6", "#FFB4A8", "#B7FFD4", "#E6E0FF", "#E0F4FF"]
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 export default function Feed() {
   const [items, setItems] = React.useState<EventCard[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [creds, setCreds] = React.useState<TelegramCreds | null>(null)
 
   React.useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${apiUrl}/events?limit=20`)
-        if (!res.ok) throw new Error(`status ${res.status}`)
-        const data: EventCard[] = await res.json()
+        const [eventsRes, credsRes] = await Promise.all([
+          fetch(`${apiUrl}/events?limit=20`),
+          fetch(`${apiUrl}/debug/telegram-creds`),
+        ])
+        if (!eventsRes.ok) throw new Error(`events status ${eventsRes.status}`)
+        const data: EventCard[] = await eventsRes.json()
         setItems(data)
+        if (credsRes.ok) {
+          const credsData: TelegramCreds = await credsRes.json()
+          setCreds(credsData)
+        }
       } catch (err) {
         console.error("fetch events", err)
       } finally {
@@ -60,6 +76,20 @@ export default function Feed() {
               Москва
             </Badge>
           </Flex>
+          {creds && (
+            <Box border="2px solid #0F0F0F" borderRadius="xl" bg="#FFF9E8" p="4" boxShadow="sm">
+              <Text fontWeight="bold" mb="2">
+                Debug: Telegram creds (masked)
+              </Text>
+              <Stack fontSize="sm" color="#222" gap="1">
+                <Text>login_mode: {creds.login_mode}</Text>
+                <Text>channels: {creds.channel_ids.join(", ")}</Text>
+                <Text>api_id: {creds.api_id}</Text>
+                <Text>api_hash: {creds.api_hash_masked}</Text>
+                {creds.bot_token_masked ? <Text>bot_token: {creds.bot_token_masked}</Text> : null}
+              </Stack>
+            </Box>
+          )}
           <Stack gap="3">
             {loading && <Text color="fg.muted">Загружаем...</Text>}
             {!loading &&

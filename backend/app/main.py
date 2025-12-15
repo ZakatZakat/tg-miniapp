@@ -13,7 +13,7 @@ from app.db import create_engine, create_session_maker
 from app.models import Base
 from app.repositories.events import EventsRepository, InMemoryEventsRepository
 from app.repositories.postgres import PostgresEventsRepository
-from app.routers import events, health
+from app.routers import debug, events, health
 from app.ingest.telegram import TelegramIngestor
 from app.tasks.polling import TelegramPollingService
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -70,6 +70,7 @@ async def shutdown_event() -> None:
 
 
 app.include_router(health.router)
+app.include_router(debug.router)
 app.include_router(events.router)
 
 app.mount("/media", StaticFiles(directory=MEDIA_ROOT, html=False), name="media")
