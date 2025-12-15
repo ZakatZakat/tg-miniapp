@@ -36,8 +36,14 @@ export default function Feed() {
   }, [])
 
   return (
-    <Box px="4" py="6">
-      <Stack gap="5">
+    <Box
+      minH="100vh"
+      bg="linear-gradient(180deg, #E8ECF5 0%, #F6F3EF 60%, #F6F3EF 100%)"
+      color="#0F0F0F"
+      fontFamily="system-ui"
+      pb="10"
+    >
+      <Stack gap="5" px="3" pt="5" maxW="430px" mx="auto">
         <Stack gap="1">
           <Text fontSize="lg" fontWeight="bold">
             Лента событий
