@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.config import Settings
 from app.db import create_engine, create_session_maker
+from app.ingest.telegram import TelegramIngestor
 from app.models import Base
 from app.repositories.events import EventsRepository, InMemoryEventsRepository
 from app.repositories.postgres import PostgresEventsRepository
 from app.routers import debug, events, health
-from app.ingest.telegram import TelegramIngestor
 from app.tasks.polling import TelegramPollingService
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,7 +41,7 @@ polling_task: asyncio.Task | None = None
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    global events_repo, engine, session_factory
+    global events_repo, engine, session_factory, polling_service, polling_task
     if settings.postgres_dsn:
         engine = create_engine(settings.postgres_dsn)
         session_factory = create_session_maker(engine)

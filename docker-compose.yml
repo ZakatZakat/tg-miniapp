@@ -22,7 +22,6 @@ services:
       - traefik.http.routers.tgapp-frontend-https.tls=true
       - traefik.http.routers.tgapp-frontend-https.tls.certresolver=le
 
-      # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.tgapp-frontend-http.middlewares=https-redirect
 
     networks:
@@ -74,7 +73,6 @@ services:
       - traefik.http.routers.tgapp-api-https.tls=true
       - traefik.http.routers.tgapp-api-https.tls.certresolver=le
 
-      # Also expose API under main host with /api prefix
       - traefik.http.middlewares.tgapp-api-strip.stripprefix.prefixes=/api
       - traefik.http.routers.tgapp-api-main-http.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/api`)
       - traefik.http.routers.tgapp-api-main-http.entrypoints=http
@@ -85,7 +83,6 @@ services:
       - traefik.http.routers.tgapp-api-main-https.tls.certresolver=le
       - traefik.http.routers.tgapp-api-main-https.middlewares=tgapp-api-strip
 
-      # Media files under /media on main host
       - traefik.http.routers.tgapp-media-http.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/media`)
       - traefik.http.routers.tgapp-media-http.entrypoints=http
       - traefik.http.routers.tgapp-media-http.middlewares=https-redirect
@@ -117,8 +114,8 @@ services:
 
 networks:
   traefik-public:
-    # Allow setting it to false for testing
     external: true
 
 volumes:
   pgdata:
+
