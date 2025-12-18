@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react"
+import { Link as RouterLink } from "@tanstack/react-router"
 
 export default function Landing() {
   return (
@@ -55,8 +56,16 @@ export default function Landing() {
             <Text fontSize="sm" color="#2d2d2d">
               Сервис для поиска самых крутых мероприятий
             </Text>
-            <Button bg="#0F0F0F" color="white" _hover={{ bg: "#1c1c1c" }} borderRadius="full" width="100%">
-              Войти
+            <Button
+              as={RouterLink}
+              to="/profile"
+              bg="#0F0F0F"
+              color="white"
+              _hover={{ bg: "#1c1c1c" }}
+              borderRadius="full"
+              width="100%"
+            >
+              Войти в кабинет
             </Button>
             <Text fontSize="xs" color="#4a4a4a">
               Или войти через

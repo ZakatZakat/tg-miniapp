@@ -41,6 +41,9 @@ export default function App() {
             <Link asChild>
               <RouterLink to="/about">About</RouterLink>
             </Link>
+            <Link asChild>
+              <RouterLink to="/profile">Profile</RouterLink>
+            </Link>
           </Flex>
           <Spacer />
           <ColorModeButton />

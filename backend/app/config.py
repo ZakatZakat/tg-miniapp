@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     telegram_login_mode: str = Field("bot", alias="TELEGRAM_LOGIN_MODE")  # bot | user
     telegram_session_string: str | None = Field(default=None, alias="TELEGRAM_SESSION_STRING")
     telegram_channel_ids_raw: str = Field(..., alias="TELEGRAM_CHANNEL_IDS")
+    telegram_polling_enabled: bool = Field(False, alias="TELEGRAM_POLLING_ENABLED")
 
     redis_url: str = Field(..., alias="REDIS_URL")
     postgres_dsn: str | None = Field(default=None, alias="POSTGRES_DSN")

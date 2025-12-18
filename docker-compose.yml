@@ -110,7 +110,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - traefik-public
+      traefik-public:
+        aliases:
+          - tg-miniapp-db
 
 networks:
   traefik-public:
@@ -118,4 +120,6 @@ networks:
 
 volumes:
   pgdata:
+
+
 

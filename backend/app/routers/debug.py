@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter
 
 from app.config import Settings
+from app.schemas import ClientErrorReport
 
 router = APIRouter(prefix="/debug", tags=["debug"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/telegram-creds")
@@ -25,4 +29,19 @@ def telegram_creds() -> dict[str, object]:
         "api_hash_masked": mask_secret(settings.telegram_api_hash),
         "bot_token_masked": mask_secret(settings.telegram_bot_token),
     }
+
+
+@router.post("/client-error")
+def client_error(payload: ClientErrorReport) -> dict[str, str]:
+    logger.error(
+        "client_error tag=%s message=%s url=%s ua=%s stack=%s",
+        payload.tag,
+        payload.message,
+        payload.url,
+        payload.user_agent,
+        (payload.stack or "")[:2000],
+    )
+    return {"status": "ok"}
+
+
 
