@@ -33,6 +33,41 @@ function firstLine(text: string | null | undefined): string {
   return text.split("\n").find((l) => l.trim())?.trim() ?? ""
 }
 
+function hashString(input: string): number {
+  let h = 0
+  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0
+  return h
+}
+
+function aiRatingForId(id: string): number {
+  const h = Math.abs(hashString(id))
+  const t = (h % 10_000) / 10_000
+  const rating = 3.6 + t * 1.4
+  return Math.round(rating * 10) / 10
+}
+
+function StarRating({ value }: { value: number }) {
+  const filled = Math.round(value * 2) / 2
+  return (
+    <Flex align="center" gap="1.5">
+      <Flex align="center" gap="0.5" aria-label={`Оценка ИИ: ${value}`}>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const n = i + 1
+          const char = filled >= n ? "★" : filled >= n - 0.5 ? "⯪" : "☆"
+          return (
+            <Text key={i} fontSize="sm" lineHeight="1" color="#0F0F0F">
+              {char}
+            </Text>
+          )
+        })}
+      </Flex>
+      <Text fontSize="xs" color="rgba(0,0,0,0.62)">
+        Оценка ИИ: {value.toFixed(1)}
+      </Text>
+    </Flex>
+  )
+}
+
 type EventFilter = {
   key: string
   label: string
@@ -166,6 +201,11 @@ export default function Feed() {
     return raw && isLikelyImageUrl(raw) ? raw : null
   }, [selected])
 
+  const selectedAiRating = React.useMemo(() => {
+    if (!selected) return null
+    return aiRatingForId(selected.id)
+  }, [selected])
+
   return (
     <Box
       minH="100dvh"
@@ -296,6 +336,7 @@ export default function Feed() {
                 const imgSrc = rawSrc && isLikelyImageUrl(rawSrc) ? rawSrc : null
                 const color = palette[(idxInCol + (col === 1 ? 3 : 0)) % palette.length]
                 const titleLine = firstLine(card.title) || firstLine(card.description) || "Событие"
+                const aiRating = aiRatingForId(card.id)
 
                 const base = col === 0 ? -2.2 : 2.0
                 const tilt = idxInCol % 2 === 0 ? base : -base * 0.85
@@ -378,6 +419,10 @@ export default function Feed() {
                       >
                         {titleLine}
                       </Text>
+
+                      <Box mt="2">
+                        <StarRating value={aiRating} />
+                      </Box>
                     </Box>
                     </Box>
                   </Box>
@@ -459,6 +504,8 @@ export default function Feed() {
                       </Text>
                     </Box>
                   ) : null}
+
+                  {selectedAiRating != null ? <StarRating value={selectedAiRating} /> : null}
 
                   <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
                     {selectedBodyText}
