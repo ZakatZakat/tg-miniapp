@@ -353,7 +353,7 @@ export default function Landing() {
         </Box>
 
         <RouterLink to="/feed">
-          <Button bg="#0F0F0F" color="white" borderRadius="full">
+          <Button bg="#0F0F0F" color="white" borderRadius="full" mt="2">
             Открыть ленту
           </Button>
         </RouterLink>
