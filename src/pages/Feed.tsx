@@ -218,14 +218,25 @@ export default function Feed() {
                     )}
 
                     <Box px="3" pt="3" pb="3">
-                      <Text
-                        fontSize="xs"
-                        color="rgba(0,0,0,0.55)"
-                        mb="1"
-                        style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                      >
-                        {card.channel}
-                      </Text>
+                      <Flex mb="2" align="center" gap="2" wrap="wrap">
+                        <Box
+                          borderRadius="full"
+                          border="1px solid rgba(255,255,255,0.14)"
+                          px="2.5"
+                          py="1"
+                          bg="#0F0F0F"
+                          maxW="100%"
+                        >
+                          <Text
+                            fontSize="xs"
+                            fontWeight="semibold"
+                            color="white"
+                            style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                          >
+                            {card.channel}
+                          </Text>
+                        </Box>
+                      </Flex>
                       <Text
                         fontSize="sm"
                         fontWeight="semibold"
