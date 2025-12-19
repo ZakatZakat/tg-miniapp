@@ -28,6 +28,30 @@ function isLikelyImageUrl(url: string): boolean {
   return u.endsWith(".jpg") || u.endsWith(".jpeg") || u.endsWith(".png") || u.endsWith(".webp") || u.endsWith(".gif")
 }
 
+type EventFilter = {
+  key: string
+  label: string
+  icon: string
+  color: string
+  keywords: string[]
+}
+
+const eventFilters: EventFilter[] = [
+  { key: "all", label: "Все", icon: "✨", color: "#111111", keywords: [] },
+  { key: "concerts", label: "Концерты", icon: "🎸", color: "#1677FF", keywords: ["концерт", "gig", "live", "выступ", "музы", "band"] },
+  { key: "theatre", label: "Театр", icon: "🎭", color: "#722ED1", keywords: ["театр", "спектакл", "пьеса", "постановк"] },
+  { key: "party", label: "Вечеринки", icon: "🎧", color: "#EB2F96", keywords: ["вечерин", "rave", "dj", "техно", "house"] },
+  { key: "exhibition", label: "Выставки", icon: "🖼️", color: "#13C2C2", keywords: ["выстав", "экспоз", "галере", "museum", "арт", "art"] },
+  { key: "lecture", label: "Лекции", icon: "🎤", color: "#FAAD14", keywords: ["лекц", "talk", "meetup", "воркшоп", "мастер", "workshop"] },
+  { key: "kids", label: "Детям", icon: "🧸", color: "#52C41A", keywords: ["дет", "семейн", "утренник", "школ", "kids"] },
+]
+
+function matchesFilter(event: EventCard, filter: EventFilter): boolean {
+  if (filter.key === "all") return true
+  const t = `${(event.title ?? "").toLowerCase()}\n${(event.description ?? "").toLowerCase()}\n${event.channel.toLowerCase()}`
+  return filter.keywords.some((k) => t.includes(k))
+}
+
 function resolveMediaUrl(media: string | undefined, apiBase: string): string | null {
   if (!media) return null
   if (media.startsWith("http://") || media.startsWith("https://")) return media
@@ -48,6 +72,7 @@ export default function Feed() {
   const [syncing, setSyncing] = React.useState(false)
   const [syncError, setSyncError] = React.useState<string | null>(null)
   const [failedImages, setFailedImages] = React.useState<Record<string, true>>({})
+  const [activeFilterKey, setActiveFilterKey] = React.useState<string>("all")
 
   const showDebug = React.useMemo(() => {
     if (typeof window === "undefined") return false
@@ -106,6 +131,11 @@ export default function Feed() {
     }
   }, [load])
 
+  const filteredItems = React.useMemo(() => {
+    const f = eventFilters.find((x) => x.key === activeFilterKey) ?? eventFilters[0]
+    return items.filter((e) => matchesFilter(e, f))
+  }, [items, activeFilterKey])
+
   return (
     <Box
       minH="100dvh"
@@ -163,11 +193,72 @@ export default function Feed() {
         {loading ? <Text color="rgba(0,0,0,0.55)">Загружаем...</Text> : null}
 
         {!loading ? (
-          <Flex align="flex-start" gap="18px">
+          <>
+            <Box>
+              <Text fontSize="xs" fontWeight="semibold" color="rgba(0,0,0,0.55)" mb="2" letterSpacing="0.2px">
+                ФИЛЬТРЫ
+              </Text>
+              <Flex gap="8px" wrap="wrap">
+                {eventFilters.map((f, i) => {
+                  const active = f.key === activeFilterKey
+                  const floatClass = i % 2 === 0 ? "tg-float-1" : "tg-float-2"
+                  const floatDurationSec = 5.4 + (i % 4) * 0.6
+                  const floatDelaySec = ((i * 0.19) % 1.5) * -1
+                  return (
+                    <Box
+                      key={f.key}
+                      className={floatClass}
+                      style={{
+                        animationDuration: `${floatDurationSec}s`,
+                        animationDelay: `${floatDelaySec}s`,
+                      }}
+                    >
+                      <Flex
+                        align="center"
+                        gap="1.5"
+                        borderRadius="full"
+                        px="2.5"
+                        py="1.5"
+                        bg={active ? "#0F0F0F" : "white"}
+                        border="1px solid rgba(0,0,0,0.10)"
+                        boxShadow={active ? "0 8px 18px rgba(0,0,0,0.16)" : "0 6px 14px rgba(0,0,0,0.07)"}
+                        cursor="pointer"
+                        onClick={() => setActiveFilterKey(f.key)}
+                        maxW="100%"
+                      >
+                        <Flex
+                          width="22px"
+                          height="22px"
+                          borderRadius="full"
+                          align="center"
+                          justify="center"
+                          bg={f.color}
+                          flex="0 0 auto"
+                        >
+                          <Text fontSize="xs" lineHeight="1" color="white">
+                            {f.icon}
+                          </Text>
+                        </Flex>
+                        <Text
+                          fontSize="xs"
+                          fontWeight="semibold"
+                          color={active ? "white" : "#0F0F0F"}
+                          style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        >
+                          {f.label}
+                        </Text>
+                      </Flex>
+                    </Box>
+                  )
+                })}
+              </Flex>
+            </Box>
+
+            <Flex align="flex-start" gap="18px" pt="2">
             {(() => {
-              const split = Math.ceil(items.length / 2)
-              const left = items.slice(0, split)
-              const right = items.slice(split)
+              const split = Math.ceil(filteredItems.length / 2)
+              const left = filteredItems.slice(0, split)
+              const right = filteredItems.slice(split)
 
               const renderCard = (card: EventCard, idxInCol: number, col: 0 | 1) => {
                 const media = card.media_urls?.find((u) => isLikelyImageUrl(u)) ?? card.media_urls?.[0]
@@ -268,6 +359,7 @@ export default function Feed() {
               )
             })()}
           </Flex>
+          </>
         ) : null}
       </Stack>
     </Box>
