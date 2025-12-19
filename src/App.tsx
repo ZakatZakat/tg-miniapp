@@ -42,6 +42,12 @@ export default function App() {
               <RouterLink to="/landing-3">Landing 3</RouterLink>
             </Link>
             <Link asChild>
+              <RouterLink to="/landing-5">Landing 5</RouterLink>
+            </Link>
+            <Link asChild>
+              <RouterLink to="/landing-6">Landing 6</RouterLink>
+            </Link>
+            <Link asChild>
               <RouterLink to="/feed">Feed</RouterLink>
             </Link>
             <Link asChild>
