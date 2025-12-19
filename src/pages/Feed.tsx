@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Badge, Box, Button, Flex, Image, Stack, Text } from "@chakra-ui/react"
+import { Badge, Box, Button, Dialog, Flex, Image, Portal, Stack, Text } from "@chakra-ui/react"
 
 type EventCard = {
   id: string
@@ -26,6 +26,11 @@ const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
 function isLikelyImageUrl(url: string): boolean {
   const u = url.toLowerCase()
   return u.endsWith(".jpg") || u.endsWith(".jpeg") || u.endsWith(".png") || u.endsWith(".webp") || u.endsWith(".gif")
+}
+
+function firstLine(text: string | null | undefined): string {
+  if (!text) return ""
+  return text.split("\n").find((l) => l.trim())?.trim() ?? ""
 }
 
 type EventFilter = {
@@ -73,6 +78,8 @@ export default function Feed() {
   const [syncError, setSyncError] = React.useState<string | null>(null)
   const [failedImages, setFailedImages] = React.useState<Record<string, true>>({})
   const [activeFilterKey, setActiveFilterKey] = React.useState<string>("all")
+  const [selected, setSelected] = React.useState<EventCard | null>(null)
+  const [detailsOpen, setDetailsOpen] = React.useState(false)
 
   const showDebug = React.useMemo(() => {
     if (typeof window === "undefined") return false
@@ -135,6 +142,29 @@ export default function Feed() {
     const f = eventFilters.find((x) => x.key === activeFilterKey) ?? eventFilters[0]
     return items.filter((e) => matchesFilter(e, f))
   }, [items, activeFilterKey])
+
+  const openDetails = React.useCallback((card: EventCard) => {
+    setSelected(card)
+    setDetailsOpen(true)
+  }, [])
+
+  const selectedTitleLine = React.useMemo(() => {
+    if (!selected) return "Событие"
+    return firstLine(selected.title) || firstLine(selected.description) || "Событие"
+  }, [selected])
+
+  const selectedBodyText = React.useMemo(() => {
+    if (!selected) return ""
+    const text = (selected.description ?? selected.title ?? "").trim()
+    return text
+  }, [selected])
+
+  const selectedImgSrc = React.useMemo(() => {
+    if (!selected) return null
+    const media = selected.media_urls?.find((u) => isLikelyImageUrl(u)) ?? selected.media_urls?.[0]
+    const raw = resolveMediaUrl(media, apiUrl)
+    return raw && isLikelyImageUrl(raw) ? raw : null
+  }, [selected])
 
   return (
     <Box
@@ -265,6 +295,7 @@ export default function Feed() {
                 const rawSrc = resolveMediaUrl(media, apiUrl)
                 const imgSrc = rawSrc && isLikelyImageUrl(rawSrc) ? rawSrc : null
                 const color = palette[(idxInCol + (col === 1 ? 3 : 0)) % palette.length]
+                const titleLine = firstLine(card.title) || firstLine(card.description) || "Событие"
 
                 const base = col === 0 ? -2.2 : 2.0
                 const tilt = idxInCol % 2 === 0 ? base : -base * 0.85
@@ -288,6 +319,12 @@ export default function Feed() {
                       bg="#FFFFFF"
                       border="1px solid rgba(0,0,0,0.10)"
                       boxShadow="0 6px 18px rgba(0,0,0,0.06)"
+                      cursor="pointer"
+                      onClick={() => openDetails(card)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") openDetails(card)
+                      }}
+                      tabIndex={0}
                       style={{
                         transform: `rotate(${tilt}deg)`,
                         transformOrigin: "center",
@@ -296,7 +333,7 @@ export default function Feed() {
                     {imgSrc && !failedImages[card.id] ? (
                       <Image
                         src={imgSrc}
-                        alt={card.title}
+                        alt={titleLine}
                         width="100%"
                         height="auto"
                         objectFit="cover"
@@ -339,7 +376,7 @@ export default function Feed() {
                           overflow: "hidden",
                         }}
                       >
-                        {card.title}
+                        {titleLine}
                       </Text>
                     </Box>
                     </Box>
@@ -362,6 +399,81 @@ export default function Feed() {
           </>
         ) : null}
       </Stack>
+
+      <Dialog.Root open={detailsOpen} onOpenChange={(d) => setDetailsOpen(d.open)}>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content
+              borderRadius="2xl"
+              overflow="hidden"
+              maxW="min(92vw, 420px)"
+              mx="auto"
+              boxShadow="0 24px 60px rgba(0,0,0,0.28)"
+            >
+              <Dialog.CloseTrigger />
+              <Dialog.Header>
+                <Dialog.Title>
+                  <Text fontWeight="black" letterSpacing="-0.3px">
+                    {selectedTitleLine}
+                  </Text>
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <Stack gap="3">
+                  <Box borderRadius="xl" overflow="hidden" border="1px solid rgba(0,0,0,0.10)">
+                    {selectedImgSrc && selected && !failedImages[selected.id] ? (
+                      <Image
+                        src={selectedImgSrc}
+                        alt={selected.title}
+                        width="100%"
+                        height="auto"
+                        objectFit="cover"
+                        onError={() => {
+                          if (!selected) return
+                          setFailedImages((prev) => ({ ...prev, [selected.id]: true }))
+                        }}
+                      />
+                    ) : (
+                      <Box bg="rgba(0,0,0,0.06)" height="220px" />
+                    )}
+                  </Box>
+
+                  {selected?.channel ? (
+                    <Box
+                      alignSelf="flex-start"
+                      borderRadius="full"
+                      border="1px solid rgba(255,255,255,0.14)"
+                      px="3"
+                      py="1.5"
+                      bg="#0F0F0F"
+                      maxW="100%"
+                    >
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        color="white"
+                        style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        {selected.channel}
+                      </Text>
+                    </Box>
+                  ) : null}
+
+                  <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
+                    {selectedBodyText}
+                  </Text>
+                </Stack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button bg="#0F0F0F" color="white" onClick={() => setDetailsOpen(false)}>
+                  Закрыть
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   )
 }
