@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Box, Button, Flex, Image, Stack, Text } from "@chakra-ui/react"
+import { Box, Button, Dialog, Flex, Image, Portal, Stack, Text } from "@chakra-ui/react"
 import { Link as RouterLink } from "@tanstack/react-router"
 
 type EventCard = {
@@ -104,6 +104,9 @@ export default function Landing() {
   const [allWithImages, setAllWithImages] = React.useState<EventCard[]>([])
   const [variant, setVariant] = React.useState<number>(() => hashSeed(new Date().toISOString().slice(0, 10)))
   const [loading, setLoading] = React.useState(true)
+  const [failedImages, setFailedImages] = React.useState<Record<string, true>>({})
+  const [selected, setSelected] = React.useState<EventCard | null>(null)
+  const [detailsOpen, setDetailsOpen] = React.useState(false)
 
   React.useEffect(() => {
     const load = async () => {
@@ -132,6 +135,28 @@ export default function Landing() {
     const raw = resolveMediaUrl(media, apiUrl)
     return { card: c, img: raw && isLikelyImageUrl(raw) ? raw : null }
   })
+
+  const openDetails = React.useCallback((card: EventCard) => {
+    setSelected(card)
+    setDetailsOpen(true)
+  }, [])
+
+  const selectedTitleLine = React.useMemo(() => {
+    if (!selected) return "Событие"
+    return firstLine(selected.title) || firstLine(selected.description) || "Событие"
+  }, [selected])
+
+  const selectedBodyText = React.useMemo(() => {
+    if (!selected) return ""
+    return (selected.description ?? selected.title ?? "").trim()
+  }, [selected])
+
+  const selectedImgSrc = React.useMemo(() => {
+    if (!selected) return null
+    const media = selected.media_urls?.find((u) => isLikelyImageUrl(u)) ?? selected.media_urls?.[0]
+    const raw = resolveMediaUrl(media, apiUrl)
+    return raw && isLikelyImageUrl(raw) ? raw : null
+  }, [selected])
 
   return (
     <Box
@@ -238,6 +263,12 @@ export default function Landing() {
                     border="1px solid rgba(0,0,0,0.10)"
                     boxShadow="0 20px 40px rgba(0,0,0,0.12)"
                     transform="rotate(-2.5deg)"
+                    cursor="pointer"
+                    onClick={() => openDetails(p.card)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") openDetails(p.card)
+                    }}
+                    tabIndex={0}
                   >
                     <Box p="4">
                       <Flex align="center" gap="2" mb="2">
@@ -258,7 +289,18 @@ export default function Landing() {
                         {p.card.channel} • #{p.card.message_id}
                       </Text>
                     </Box>
-                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="220px" objectFit="cover" /> : null}
+                    {p.img && !failedImages[p.card.id] ? (
+                      <Image
+                        src={p.img}
+                        alt={p.card.title}
+                        width="100%"
+                        height="220px"
+                        objectFit="cover"
+                        onError={() => {
+                          setFailedImages((prev) => ({ ...prev, [p.card.id]: true }))
+                        }}
+                      />
+                    ) : null}
                   </Box>
                 )
               })()}
@@ -281,6 +323,12 @@ export default function Landing() {
                     transform="rotate(10deg)"
                     className="tg-float-1"
                     style={{ animationDuration: "7.5s", animationDelay: "-1.2s" }}
+                    cursor="pointer"
+                    onClick={() => openDetails(p.card)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") openDetails(p.card)
+                    }}
+                    tabIndex={0}
                   >
                     <Box p="4">
                       <Flex align="center" gap="2" mb="2">
@@ -301,7 +349,18 @@ export default function Landing() {
                         {p.card.channel} • #{p.card.message_id}
                       </Text>
                     </Box>
-                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="160px" objectFit="cover" /> : null}
+                    {p.img && !failedImages[p.card.id] ? (
+                      <Image
+                        src={p.img}
+                        alt={p.card.title}
+                        width="100%"
+                        height="160px"
+                        objectFit="cover"
+                        onError={() => {
+                          setFailedImages((prev) => ({ ...prev, [p.card.id]: true }))
+                        }}
+                      />
+                    ) : null}
                   </Box>
                 )
               })()}
@@ -324,6 +383,12 @@ export default function Landing() {
                     transform="rotate(-12deg)"
                     className="tg-float-2"
                     style={{ animationDuration: "8.1s", animationDelay: "-0.6s" }}
+                    cursor="pointer"
+                    onClick={() => openDetails(p.card)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") openDetails(p.card)
+                    }}
+                    tabIndex={0}
                   >
                     <Box p="4">
                       <Flex align="center" gap="2" mb="2">
@@ -344,7 +409,18 @@ export default function Landing() {
                         {p.card.channel} • #{p.card.message_id}
                       </Text>
                     </Box>
-                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="160px" objectFit="cover" /> : null}
+                    {p.img && !failedImages[p.card.id] ? (
+                      <Image
+                        src={p.img}
+                        alt={p.card.title}
+                        width="100%"
+                        height="160px"
+                        objectFit="cover"
+                        onError={() => {
+                          setFailedImages((prev) => ({ ...prev, [p.card.id]: true }))
+                        }}
+                      />
+                    ) : null}
                   </Box>
                 )
               })()}
@@ -358,6 +434,81 @@ export default function Landing() {
           </Button>
         </RouterLink>
       </Stack>
+
+      <Dialog.Root open={detailsOpen} onOpenChange={(d) => setDetailsOpen(d.open)}>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content
+              borderRadius="2xl"
+              overflow="hidden"
+              maxW="min(92vw, 420px)"
+              mx="auto"
+              boxShadow="0 24px 60px rgba(0,0,0,0.28)"
+            >
+              <Dialog.CloseTrigger />
+              <Dialog.Header>
+                <Dialog.Title>
+                  <Text fontWeight="black" letterSpacing="-0.3px">
+                    {selectedTitleLine}
+                  </Text>
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <Stack gap="3">
+                  <Box borderRadius="xl" overflow="hidden" border="1px solid rgba(0,0,0,0.10)">
+                    {selectedImgSrc && selected && !failedImages[selected.id] ? (
+                      <Image
+                        src={selectedImgSrc}
+                        alt={selected.title}
+                        width="100%"
+                        height="auto"
+                        objectFit="cover"
+                        onError={() => {
+                          if (!selected) return
+                          setFailedImages((prev) => ({ ...prev, [selected.id]: true }))
+                        }}
+                      />
+                    ) : (
+                      <Box bg="rgba(0,0,0,0.06)" height="220px" />
+                    )}
+                  </Box>
+
+                  {selected?.channel ? (
+                    <Box
+                      alignSelf="flex-start"
+                      borderRadius="full"
+                      border="1px solid rgba(255,255,255,0.14)"
+                      px="3"
+                      py="1.5"
+                      bg="#0F0F0F"
+                      maxW="100%"
+                    >
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        color="white"
+                        style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        {selected.channel} • #{selected.message_id}
+                      </Text>
+                    </Box>
+                  ) : null}
+
+                  <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
+                    {selectedBodyText}
+                  </Text>
+                </Stack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button bg="#0F0F0F" color="white" onClick={() => setDetailsOpen(false)}>
+                  Закрыть
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   )
 }
