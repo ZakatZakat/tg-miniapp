@@ -42,118 +42,106 @@ function hashSeed(input: string): number {
   return h
 }
 
-function mulberry32(seed: number): () => number {
-  let a = seed | 0
-  return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function chooseLandingCards(all: EventCard[], seed: number): EventCard[] {
-  const rng = mulberry32(seed)
-  const scored = [...all].sort((a, b) => {
-    const ta = firstLine(a.title).length + (a.description ?? "").length + rng() * 100
-    const tb = firstLine(b.title).length + (b.description ?? "").length + rng() * 100
-    return tb - ta
+function chooseCards(all: EventCard[], seed: number, want: number): EventCard[] {
+  const withImg = all.filter((e) => (e.media_urls ?? []).some((u) => isLikelyImageUrl(u)))
+  const scored = [...withImg].sort((a, b) => {
+    const sa = firstLine(a.title).length + (a.description ?? "").length + (hashSeed(a.id) ^ seed)
+    const sb = firstLine(b.title).length + (b.description ?? "").length + (hashSeed(b.id) ^ seed)
+    return sb - sa
   })
-
   const out: EventCard[] = []
-  const usedChannels = new Set<string>()
-
+  const used = new Set<string>()
   for (const e of scored) {
-    if (out.length >= 3) break
-    if (usedChannels.has(e.channel)) continue
+    if (out.length >= want) break
+    if (used.has(e.channel)) continue
     out.push(e)
-    usedChannels.add(e.channel)
+    used.add(e.channel)
   }
-  if (out.length < 3) {
-    for (const e of scored) {
-      if (out.length >= 3) break
-      if (out.some((x) => x.id === e.id)) continue
-      out.push(e)
-    }
+  for (const e of scored) {
+    if (out.length >= want) break
+    if (out.some((x) => x.id === e.id)) continue
+    out.push(e)
   }
-  return out.slice(0, 3)
+  return out.slice(0, want)
 }
 
-type FanCardProps = {
-  idx: 0 | 1 | 2
-  active: 0 | 1 | 2
-  onActivate: (idx: 0 | 1 | 2) => void
+type TileProps = {
   title: string
-  subtitle: string
+  label: string
   img: string | null
   bg: string
+  textColor?: string
+  tall?: boolean
 }
 
-function FanCard({ idx, active, onActivate, title, subtitle, img, bg }: FanCardProps) {
-  const isActive = idx === active
-
-  // Fixed "fan" positions to match reference.
-  // Active card only raises z-index + slightly scales, without changing layout.
-  const fan = [
-    { x: -46, y: 44, r: -2.0, z: 1, w: "96%" }, // back (orange)
-    { x: 14, y: 162, r: 13.0, z: 2, w: "82%" }, // middle (pink)
-    { x: -2, y: 292, r: -11.5, z: 3, w: "88%" }, // front (green)
-  ] as const
-
-  const p = fan[idx]
-
+function Tile({ title, label, img, bg, textColor = "#0F0F0F", tall }: TileProps) {
   return (
     <Box
-      position="absolute"
-      left="50%"
-      top="0"
-      width={p.w}
-      transform={`translateX(-50%) translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) ${isActive ? "scale(1.03)" : ""}`}
-      transformOrigin="center"
       borderRadius="2xl"
       overflow="hidden"
+      border="1px solid rgba(0,0,0,0.12)"
       bg={bg}
-      border="1px solid rgba(0,0,0,0.10)"
-      boxShadow={isActive ? "0 28px 58px rgba(0,0,0,0.18)" : "0 22px 42px rgba(0,0,0,0.14)"}
-      zIndex={isActive ? 10 : p.z}
-      transition="transform 220ms ease, box-shadow 220ms ease"
-      onClick={() => onActivate(idx)}
-      cursor="pointer"
-      className={idx % 2 === 0 ? "tg-float-1" : "tg-float-2"}
-      style={{
-        animationDuration: `${7.4 + idx * 0.7}s`,
-        animationDelay: `${-0.6 - idx * 0.4}s`,
-      }}
+      position="relative"
+      height={tall ? "320px" : "155px"}
     >
-      <Box p="4">
-        <Flex align="center" gap="2" mb="2">
-          <Box w="6" h="6" borderRadius="full" bg="rgba(0,0,0,0.10)" display="grid" placeItems="center">
-            🤖
+      {img ? (
+        <Image src={img} alt={title} width="100%" height="100%" objectFit="cover" />
+      ) : (
+        <Box position="absolute" inset="0" bg="linear-gradient(135deg, rgba(255,255,255,0.25), rgba(0,0,0,0.06))" />
+      )}
+
+      <Box position="absolute" inset="0" p="3" display="flex" flexDirection="column" justifyContent="space-between">
+        <Flex align="center" justify="space-between">
+          <Box
+            px="3"
+            py="1"
+            borderRadius="full"
+            bg="rgba(255,255,255,0.75)"
+            color="rgba(0,0,0,0.75)"
+            fontSize="xs"
+            fontWeight="semibold"
+          >
+            {label}
           </Box>
-          <Text fontSize="xs" fontWeight="semibold" color="rgba(0,0,0,0.75)">
-            AI bot
-          </Text>
-          <Text fontSize="xs" color="rgba(0,0,0,0.45)">
-            • recommends
-          </Text>
+          <Box
+            w="8"
+            h="8"
+            borderRadius="full"
+            bg="rgba(255,255,255,0.75)"
+            display="grid"
+            placeItems="center"
+            color="rgba(0,0,0,0.75)"
+            fontSize="sm"
+          >
+            ↗
+          </Box>
         </Flex>
-        <Text fontSize="md" fontWeight="semibold" lineHeight="1.15">
+
+        <Text
+          fontSize={tall ? "2xl" : "lg"}
+          fontWeight="black"
+          lineHeight="1.05"
+          letterSpacing="-0.5px"
+          color={textColor}
+          style={{
+            textShadow: img ? "0 2px 10px rgba(0,0,0,0.25)" : "none",
+            display: "-webkit-box",
+            WebkitLineClamp: tall ? 4 : 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
           {title}
         </Text>
-        <Text fontSize="xs" mt="2" color="rgba(0,0,0,0.60)">
-          {subtitle}
-        </Text>
       </Box>
-      {img ? <Image src={img} alt={title} width="100%" height="180px" objectFit="cover" /> : null}
     </Box>
   )
 }
 
 export default function Landing2() {
-  const [allWithImages, setAllWithImages] = React.useState<EventCard[]>([])
-  const [variant, setVariant] = React.useState<number>(() => hashSeed(new Date().toISOString().slice(0, 10)))
-  const [active, setActive] = React.useState<0 | 1 | 2>(2)
+  const [events, setEvents] = React.useState<EventCard[]>([])
+  const [variant, setVariant] = React.useState<number>(() => Date.now())
+  const [activeTab, setActiveTab] = React.useState<string>("Все")
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -162,13 +150,10 @@ export default function Landing2() {
         const res = await fetch(`${apiUrl}/events?limit=120`, { cache: "no-store" })
         if (!res.ok) throw new Error(`events status ${res.status}`)
         const data: EventCard[] = await res.json()
-        const withImages = data
-          .filter((e) => (e.media_urls ?? []).some((u) => isLikelyImageUrl(u)))
-          .filter((e) => firstLine(e.title).length >= 6 || (e.description ?? "").length >= 40)
-        setAllWithImages(withImages)
+        setEvents(data)
       } catch (e) {
         console.error("landing2 load", e)
-        setAllWithImages([])
+        setEvents([])
       } finally {
         setLoading(false)
       }
@@ -176,20 +161,36 @@ export default function Landing2() {
     load()
   }, [])
 
-  const cards = React.useMemo(() => chooseLandingCards(allWithImages, variant), [allWithImages, variant])
-  const preview = cards.map((c) => {
+  const filtered = React.useMemo(() => {
+    if (activeTab === "Все") return events
+    const key = activeTab.toLowerCase()
+    return events.filter((e) => `${(e.title ?? "").toLowerCase()}\n${(e.description ?? "").toLowerCase()}`.includes(key))
+  }, [activeTab, events])
+
+  const cards = React.useMemo(() => chooseCards(filtered, variant, 4), [filtered, variant])
+  const tiles = cards.map((c) => {
     const media = c.media_urls?.find((u) => isLikelyImageUrl(u)) ?? c.media_urls?.[0]
     const raw = resolveMediaUrl(media, apiUrl)
-    return { card: c, img: raw && isLikelyImageUrl(raw) ? raw : null }
+    return {
+      card: c,
+      img: raw && isLikelyImageUrl(raw) ? raw : null,
+      title: firstLine(c.title) || firstLine(c.description) || "Событие",
+      label: c.channel.replace(/^@/, "").slice(0, 18),
+    }
   })
 
   return (
-    <Box minH="100dvh" bg="#D8DEE3" color="#0F0F0F" fontFamily="system-ui" pb="10">
+    <Box minH="100dvh" bg="#F2F2F2" color="#0F0F0F" fontFamily="system-ui" pb="10">
       <Stack gap="4" px="4" pt="5" maxW="430px" mx="auto">
         <Flex align="center" justify="space-between">
-          <Text fontSize="md" fontWeight="semibold" color="rgba(0,0,0,0.75)">
-            Landing 2 (fan)
-          </Text>
+          <Flex align="center" gap="2">
+            <Box w="9" h="9" borderRadius="full" bg="#FFD34E" display="grid" placeItems="center" fontWeight="black">
+              L
+            </Box>
+            <Text fontSize="2xl" fontWeight="black" letterSpacing="-0.6px">
+              lazy
+            </Text>
+          </Flex>
           <Flex gap="2">
             <Button
               size="sm"
@@ -208,60 +209,95 @@ export default function Landing2() {
           </Flex>
         </Flex>
 
-        <Text fontSize="4xl" fontWeight="semibold" lineHeight="0.95" letterSpacing="-0.6px">
-          Hey!
-          <br />
-          What you upto?
-        </Text>
+        <Flex align="center" justify="space-between" gap="3" mt="1">
+          <Text fontSize="4xl" fontWeight="black" lineHeight="0.95" letterSpacing="-0.9px">
+            Подборка
+            <br />
+            ивентов
+          </Text>
+          <Box w="11" h="11" borderRadius="full" bg="#FFD34E" display="grid" placeItems="center" fontSize="lg">
+            🛍️
+          </Box>
+        </Flex>
 
-        <Box position="relative" minH="520px">
-          {loading ? <Text color="rgba(0,0,0,0.55)">Загружаем…</Text> : null}
-          {!loading && preview.length < 3 ? (
-            <Box borderRadius="2xl" bg="rgba(255,255,255,0.6)" border="1px solid rgba(0,0,0,0.08)" p="4">
-              <Text fontWeight="semibold">Недостаточно постов с картинками</Text>
-              <Text fontSize="sm" color="rgba(0,0,0,0.6)" mt="1">
-                Нажми «Забрать из TG» в ленте, затем вернись сюда.
-              </Text>
-              <RouterLink to="/feed">
-                <Button mt="3" bg="#0F0F0F" color="white">
-                  Перейти в ленту
-                </Button>
-              </RouterLink>
+        {loading ? <Text color="rgba(0,0,0,0.55)">Загружаем…</Text> : null}
+
+        {!loading && tiles.length < 4 ? (
+          <Box borderRadius="2xl" bg="white" border="1px solid rgba(0,0,0,0.10)" p="4">
+            <Text fontWeight="semibold">Недостаточно ивентов с картинками</Text>
+            <Text fontSize="sm" color="rgba(0,0,0,0.6)" mt="1">
+              Открой ленту и нажми «Забрать из TG», затем вернись сюда.
+            </Text>
+            <RouterLink to="/feed">
+              <Button mt="3" bg="#0F0F0F" color="white">
+                Перейти в ленту
+              </Button>
+            </RouterLink>
+          </Box>
+        ) : null}
+
+        {!loading && tiles.length >= 4 ? (
+          <Box>
+            <Flex gap="10px">
+              <Box flex="1.05">
+                <Tile
+                  tall
+                  title={tiles[0].title}
+                  label="в подборке"
+                  img={tiles[0].img}
+                  bg="#111"
+                  textColor="white"
+                />
+              </Box>
+              <Stack flex="0.95" gap="10px">
+                <Tile
+                  title={tiles[1].title}
+                  label="топ"
+                  img={null}
+                  bg="white"
+                  textColor="#0F0F0F"
+                />
+                <Tile
+                  title={tiles[2].title}
+                  label="быстро"
+                  img={null}
+                  bg="#111"
+                  textColor="white"
+                />
+              </Stack>
+            </Flex>
+            <Box mt="10px">
+              <Tile
+                title={tiles[3].title}
+                label="сегодня"
+                img={tiles[3].img}
+                bg="#FFD34E"
+                textColor="#0F0F0F"
+              />
             </Box>
-          ) : null}
+          </Box>
+        ) : null}
 
-          {!loading && preview.length >= 3 ? (
-            <>
-              <FanCard
-                idx={0}
-                active={active}
-                onActivate={(i) => setActive(i)}
-                title={`ИИ‑бот (как пользователь) советует: ${(firstLine(preview[0].card.title) || "Ивент").slice(0, 60)}`}
-                subtitle={`${preview[0].card.channel} • #${preview[0].card.message_id}`}
-                img={preview[0].img}
-                bg="#DA5B46"
-              />
-              <FanCard
-                idx={1}
-                active={active}
-                onActivate={(i) => setActive(i)}
-                title={`Рекомендация ИИ: ${(firstLine(preview[1].card.title) || "Ивент").slice(0, 70)}`}
-                subtitle={`${preview[1].card.channel} • #${preview[1].card.message_id}`}
-                img={preview[1].img}
-                bg="#F4A8DE"
-              />
-              <FanCard
-                idx={2}
-                active={active}
-                onActivate={(i) => setActive(i)}
-                title={`Стоит посмотреть: ${(firstLine(preview[2].card.title) || "Ивент").slice(0, 70)}`}
-                subtitle={`${preview[2].card.channel} • #${preview[2].card.message_id}`}
-                img={preview[2].img}
-                bg="#3ED47C"
-              />
-            </>
-          ) : null}
-        </Box>
+        <Flex gap="2" overflowX="auto" pb="2" style={{ scrollbarWidth: "none" }}>
+          {["Все", "Концерты", "Вечеринки", "Театр", "Бесплатно", "Стендап"].map((t) => {
+            const active = t === activeTab
+            return (
+              <Button
+                key={t}
+                size="sm"
+                borderRadius="full"
+                variant={active ? "solid" : "outline"}
+                bg={active ? "#0F0F0F" : "white"}
+                color={active ? "white" : "#111"}
+                borderColor="rgba(0,0,0,0.18)"
+                onClick={() => setActiveTab(t)}
+                flex="0 0 auto"
+              >
+                {t}
+              </Button>
+            )
+          })}
+        </Flex>
 
         <RouterLink to="/feed">
           <Button bg="#0F0F0F" color="white" borderRadius="full">
