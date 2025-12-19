@@ -46,6 +46,35 @@ function hashSeed(input: string): number {
   return h
 }
 
+function aiRatingForId(id: string): number {
+  const h = Math.abs(hashSeed(id))
+  const t = (h % 10_000) / 10_000
+  const rating = 3.6 + t * 1.4
+  return Math.round(rating * 10) / 10
+}
+
+function StarRating({ value }: { value: number }) {
+  const filled = Math.round(value * 2) / 2
+  return (
+    <Flex align="center" gap="1.5">
+      <Flex align="center" gap="0.5" aria-label={`Оценка ИИ: ${value}`}>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const n = i + 1
+          const char = filled >= n ? "★" : filled >= n - 0.5 ? "⯪" : "☆"
+          return (
+            <Text key={i} fontSize="sm" lineHeight="1" color="#0F0F0F">
+              {char}
+            </Text>
+          )
+        })}
+      </Flex>
+      <Text fontSize="xs" color="rgba(0,0,0,0.62)">
+        Оценка ИИ: {value.toFixed(1)}
+      </Text>
+    </Flex>
+  )
+}
+
 function mulberry32(seed: number): () => number {
   let a = seed | 0
   return () => {
@@ -156,6 +185,16 @@ export default function Landing() {
     const media = selected.media_urls?.find((u) => isLikelyImageUrl(u)) ?? selected.media_urls?.[0]
     const raw = resolveMediaUrl(media, apiUrl)
     return raw && isLikelyImageUrl(raw) ? raw : null
+  }, [selected])
+
+  const selectedAiReview = React.useMemo(() => {
+    if (!selected) return null
+    return aiRecommendation(selected)
+  }, [selected])
+
+  const selectedAiRating = React.useMemo(() => {
+    if (!selected) return null
+    return aiRatingForId(selected.id)
   }, [selected])
 
   return (
@@ -495,9 +534,30 @@ export default function Landing() {
                     </Box>
                   ) : null}
 
+                  {selectedAiRating != null ? <StarRating value={selectedAiRating} /> : null}
+
                   <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
                     {selectedBodyText}
                   </Text>
+
+                  {selectedAiReview ? (
+                    <Box borderRadius="xl" border="1px solid rgba(0,0,0,0.10)" bg="rgba(0,0,0,0.02)" p="3">
+                      <Flex align="center" gap="2" mb="2">
+                        <Box w="7" h="7" borderRadius="full" bg="rgba(0,0,0,0.08)" display="grid" placeItems="center">
+                          🤖
+                        </Box>
+                        <Text fontSize="sm" fontWeight="semibold" color="rgba(0,0,0,0.85)">
+                          Отзыв ИИ (симуляция пользователя)
+                        </Text>
+                        <Text fontSize="sm" color="rgba(0,0,0,0.45)">
+                          • {selectedAiReview.meta}
+                        </Text>
+                      </Flex>
+                      <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
+                        {selectedAiReview.text}
+                      </Text>
+                    </Box>
+                  ) : null}
                 </Stack>
               </Dialog.Body>
               <Dialog.Footer>
