@@ -177,21 +177,31 @@ export default function Feed() {
 
                 const base = col === 0 ? -2.2 : 2.0
                 const tilt = idxInCol % 2 === 0 ? base : -base * 0.85
+                const floatClass = (idxInCol + col) % 2 === 0 ? "tg-float-1" : "tg-float-2"
+                const floatDurationSec = 6.2 + ((idxInCol + col) % 4) * 0.7
+                const floatDelaySec = ((idxInCol * 0.23 + col * 0.41) % 1.4) * -1
 
                 return (
                   <Box
                     key={card.id}
-                    width="100%"
-                    borderRadius="2xl"
-                    overflow="hidden"
-                    bg="#FFFFFF"
-                    border="1px solid rgba(0,0,0,0.10)"
-                    boxShadow="0 6px 18px rgba(0,0,0,0.06)"
+                    className={floatClass}
                     style={{
-                      transform: `rotate(${tilt}deg)`,
-                      transformOrigin: "center",
+                      animationDuration: `${floatDurationSec}s`,
+                      animationDelay: `${floatDelaySec}s`,
                     }}
                   >
+                    <Box
+                      width="100%"
+                      borderRadius="2xl"
+                      overflow="hidden"
+                      bg="#FFFFFF"
+                      border="1px solid rgba(0,0,0,0.10)"
+                      boxShadow="0 6px 18px rgba(0,0,0,0.06)"
+                      style={{
+                        transform: `rotate(${tilt}deg)`,
+                        transformOrigin: "center",
+                      }}
+                    >
                     {imgSrc && !failedImages[card.id] ? (
                       <Image
                         src={imgSrc}
@@ -229,6 +239,7 @@ export default function Feed() {
                       >
                         {card.title}
                       </Text>
+                    </Box>
                     </Box>
                   </Box>
                 )

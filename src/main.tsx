@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client"
 import { RouterProvider } from "@tanstack/react-router"
 import { Provider } from "./components/ui/provider"
 import { router } from "./router"
+import "./index.css"
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
