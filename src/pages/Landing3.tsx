@@ -40,7 +40,9 @@ function normalizeText(text: string | null | undefined): string {
 }
 
 export default function Landing3() {
-  const [imgSrc, setImgSrc] = React.useState<string | null>(null)
+  const [images, setImages] = React.useState<string[]>([])
+  const [idx, setIdx] = React.useState(0)
+  const [visible, setVisible] = React.useState(true)
   const [imgFailed, setImgFailed] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
 
@@ -72,7 +74,7 @@ export default function Landing3() {
               (b.description ?? "").length -
               (firstLine(a.title).length + (a.description ?? "").length),
           )
-          .slice(0, 24)
+          .slice(0, 60)
 
         const preferred = target ?? targetSoft
         const preferredUrl = (() => {
@@ -81,34 +83,24 @@ export default function Landing3() {
           return media ? resolveMediaUrl(media, apiUrl) : null
         })()
 
-        const urls = [
+        const urls = ([
           ...(preferredUrl ? [preferredUrl] : []),
           ...candidates
-          .map((e) => e.media_urls?.find((u) => isLikelyImageUrl(u)) ?? e.media_urls?.[0] ?? null)
-          .map((u) => (u ? resolveMediaUrl(u, apiUrl) : null))
+            .map((e) => e.media_urls?.find((u) => isLikelyImageUrl(u)) ?? e.media_urls?.[0] ?? null)
+            .map((u) => (u ? resolveMediaUrl(u, apiUrl) : null)),
+        ] as Array<string | null>)
           .filter((u): u is string => Boolean(u) && isLikelyImageUrl(u!))
-          .filter((u, idx, arr) => arr.indexOf(u) === idx),
-        ]
+          .filter((u, i, arr) => arr.indexOf(u) === i)
+          .slice(0, 12)
 
-        let picked: string | null = null
-        for (const u of urls) {
-          try {
-            const head = await fetch(u, { method: "HEAD", cache: "no-store" })
-            const ct = head.headers.get("content-type") || ""
-            if (head.ok && ct.startsWith("image/")) {
-              picked = u
-              break
-            }
-          } catch {
-            // ignore and try next
-          }
-        }
-
+        setImages(urls)
+        setIdx(0)
+        setVisible(true)
         setImgFailed(false)
-        setImgSrc(picked)
       } catch (e) {
         console.error("landing3 load", e)
-        setImgSrc(null)
+        setImages([])
+        setIdx(0)
         setImgFailed(false)
       } finally {
         setLoading(false)
@@ -116,6 +108,38 @@ export default function Landing3() {
     }
     load()
   }, [])
+
+  const reduceMotion = React.useMemo(() => {
+    if (typeof window === "undefined") return false
+    try {
+      return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
+    } catch {
+      return false
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (reduceMotion) return
+    if (loading) return
+    if (images.length <= 1) return
+
+    let t: number | null = null
+    const interval = window.setInterval(() => {
+      setVisible(false)
+      if (t) window.clearTimeout(t)
+      t = window.setTimeout(() => {
+        setIdx((prev) => (prev + 1) % images.length)
+        setVisible(true)
+      }, 350)
+    }, 5200)
+
+    return () => {
+      window.clearInterval(interval)
+      if (t) window.clearTimeout(t)
+    }
+  }, [images.length, loading, reduceMotion])
+
+  const imgSrc = images.length ? images[idx % images.length] : null
 
   return (
     <Box minH="100dvh" bg="#C9D36A" display="grid" placeItems="center" py="8">
@@ -153,8 +177,15 @@ export default function Landing3() {
               objectPosition="50% 20%"
               position="absolute"
               inset="0"
+              opacity={visible ? 1 : 0}
+              transition={reduceMotion ? "none" : "opacity 280ms ease"}
               onError={() => {
                 setImgFailed(true)
+                if (images.length > 1) {
+                  setIdx((prev) => (prev + 1) % images.length)
+                  setVisible(true)
+                  setImgFailed(false)
+                }
               }}
             />
           ) : (
@@ -180,20 +211,20 @@ export default function Landing3() {
             pb="18px"
             boxShadow="0 -18px 35px rgba(0,0,0,0.25)"
           >
-            <Text fontWeight="black" fontSize="2xl" lineHeight="1.0" letterSpacing="-0.6px" color="#0F0F0F">
-              EXPLORE 500+
+            <Text fontWeight="black" fontSize="xl" lineHeight="1.05" letterSpacing="-0.4px" color="#0F0F0F">
+              ИИ подбирает для тебя
               <br />
-              EVENTS AND
+              лучшие события из 500+
               <br />
-              GO OUT MORE
+              ивентов — под твой вкус
             </Text>
 
             <Stack gap="2" mt="4">
               <Button bg="#1A1A1A" color="white" borderRadius="full">
-                GET STARTED
+                Начать подбор
               </Button>
               <Button variant="ghost" borderRadius="full">
-                LOG IN
+                Войти
               </Button>
             </Stack>
           </Box>
