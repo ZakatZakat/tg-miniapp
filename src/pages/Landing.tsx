@@ -1,98 +1,362 @@
 import * as React from "react"
-import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react"
+import { Box, Button, Flex, Image, Stack, Text } from "@chakra-ui/react"
 import { Link as RouterLink } from "@tanstack/react-router"
 
+type EventCard = {
+  id: string
+  title: string
+  description?: string | null
+  channel: string
+  message_id: number
+  media_urls?: string[]
+  created_at: string
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+function isLikelyImageUrl(url: string): boolean {
+  const u = url.toLowerCase()
+  return u.endsWith(".jpg") || u.endsWith(".jpeg") || u.endsWith(".png") || u.endsWith(".webp") || u.endsWith(".gif")
+}
+
+function resolveMediaUrl(media: string | undefined, apiBase: string): string | null {
+  if (!media) return null
+  if (media.startsWith("http://") || media.startsWith("https://")) return media
+  try {
+    const base = new URL(apiBase)
+    if (media.startsWith("/media/")) return `${base.origin}${media}`
+    return `${apiBase}${media.startsWith("/") ? "" : "/"}${media}`
+  } catch {
+    return media
+  }
+}
+
+function firstLine(text: string | null | undefined): string {
+  if (!text) return ""
+  return text.split("\n").find((l) => l.trim())?.trim() ?? ""
+}
+
+function pick<T>(arr: readonly T[], seed: number): T {
+  return arr[Math.abs(seed) % arr.length]
+}
+
+function hashSeed(input: string): number {
+  let h = 0
+  for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0
+  return h
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed | 0
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function chooseLandingCards(all: EventCard[], seed: number): EventCard[] {
+  const rng = mulberry32(seed)
+  const score = (e: EventCard): number => {
+    const textLen = (firstLine(e.title).length + (e.description ?? "").length) | 0
+    const diversity = Math.min(140, textLen) / 10
+    return diversity + rng() * 0.6
+  }
+
+  const shuffled = [...all].sort((a, b) => score(b) - score(a))
+  const out: EventCard[] = []
+  const usedChannels = new Set<string>()
+
+  for (const e of shuffled) {
+    if (out.length >= 3) break
+    if (usedChannels.has(e.channel)) continue
+    out.push(e)
+    usedChannels.add(e.channel)
+  }
+
+  if (out.length < 3) {
+    for (const e of shuffled) {
+      if (out.length >= 3) break
+      if (out.some((x) => x.id === e.id)) continue
+      out.push(e)
+    }
+  }
+
+  return out.slice(0, 3)
+}
+
+function aiRecommendation(card: EventCard): { author: string; meta: string; text: string } {
+  const seed = hashSeed(card.id)
+  const author = pick(["Tanim", "Ratul", "Jahin", "Sasha", "Mila", "Artem"] as const, seed)
+  const meta = pick(["just now", "5m", "12m", "1h"] as const, seed >> 3)
+  const base = firstLine(card.title) || firstLine(card.description) || "Ивент"
+  const templates = [
+    `ИИ‑бот (как пользователь) советует: присмотрись к «${base}» — выглядит как хороший повод выбраться из дома.`,
+    `Написано ИИ‑ботом от лица пользователя: «${base}» — я бы сходил(а), звучит живо и без скуки.`,
+    `Рекомендация от ИИ‑бота (симуляция пользователя): «${base}». Сохрани и проверь даты/место.`,
+  ] as const
+  return { author, meta, text: pick(templates, seed >> 7) }
+}
+
 export default function Landing() {
+  const [allWithImages, setAllWithImages] = React.useState<EventCard[]>([])
+  const [variant, setVariant] = React.useState<number>(() => hashSeed(new Date().toISOString().slice(0, 10)))
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/events?limit=60`, { cache: "no-store" })
+        if (!res.ok) throw new Error(`events status ${res.status}`)
+        const data: EventCard[] = await res.json()
+        const withImages = data
+          .filter((e) => (e.media_urls ?? []).some((u) => isLikelyImageUrl(u)))
+          .filter((e) => firstLine(e.title).length >= 6 || (e.description ?? "").length >= 40)
+        setAllWithImages(withImages)
+      } catch (e) {
+        console.error("landing load", e)
+        setAllWithImages([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const cards = React.useMemo(() => chooseLandingCards(allWithImages, variant), [allWithImages, variant])
+
+  const preview = cards.map((c) => {
+    const media = c.media_urls?.find((u) => isLikelyImageUrl(u)) ?? c.media_urls?.[0]
+    const raw = resolveMediaUrl(media, apiUrl)
+    return { card: c, img: raw && isLikelyImageUrl(raw) ? raw : null }
+  })
+
   return (
     <Box
-      minH="100vh"
-      bg="linear-gradient(180deg, #E8ECF5 0%, #F6F3EF 60%, #F6F3EF 100%)"
+      minH="100dvh"
+      bg="#D8DEE3"
       color="#0F0F0F"
       fontFamily="system-ui"
       pb="10"
     >
-      <Stack gap="6" px="3" pt="5" maxW="430px" mx="auto">
-        <Stack gap="2">
-          <Text fontSize="xl" fontWeight="bold" letterSpacing="wide">
-            EVENT FINDER APP
-          </Text>
-          <Text fontSize="sm" color="#2d2d2d">
-            Вход в мини-приложение
-          </Text>
-        </Stack>
+      <Stack gap="4" px="4" pt="5" maxW="430px" mx="auto">
+        <Text fontSize="md" fontWeight="semibold" color="rgba(0,0,0,0.75)">
+          Casapolino
+        </Text>
 
-        <Box
-          position="relative"
-          overflow="hidden"
-          borderRadius="xl"
-          bg="#B8D7FF"
-          p="5"
-          minH="320px"
-          border="2px solid #0F0F0F"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Box
-            position="absolute"
-            inset="0"
-            pointerEvents="none"
-            opacity={0.2}
-            bg="radial-gradient(circle at 20% 20%, #fff 0, transparent 30%), radial-gradient(circle at 80% 30%, #fff 0, transparent 25%), radial-gradient(circle at 40% 70%, #fff 0, transparent 30%)"
-          />
-          <Stack
-            gap="4"
-            w="260px"
-            bg="rgba(255,255,255,0.9)"
-            borderRadius="2xl"
-            p="5"
-            border="1px solid #0F0F0F"
-            alignItems="center"
-            textAlign="center"
-          >
-            <Text fontSize="lg" fontWeight="bold" letterSpacing="wide">
-              LAZY
-            </Text>
-            <Text fontSize="sm" color="#2d2d2d">
-              Сервис для поиска самых крутых мероприятий
-            </Text>
+        <Text fontSize="4xl" fontWeight="semibold" lineHeight="0.95" letterSpacing="-0.6px">
+          Hey!
+          <br />
+          What you upto?
+        </Text>
+
+        <Flex align="center" justify="space-between" gap="3">
+          <Flex gap="2" bg="rgba(255,255,255,0.55)" p="1" borderRadius="full">
+            <Box px="3" py="1.5" borderRadius="full" bg="white" fontSize="sm" fontWeight="semibold">
+              Post
+            </Box>
+            <Box px="3" py="1.5" borderRadius="full" color="rgba(0,0,0,0.65)" fontSize="sm" fontWeight="semibold">
+              Creator
+            </Box>
+          </Flex>
+          <Flex gap="2">
             <Button
-              as={RouterLink}
-              to="/profile"
-              bg="#0F0F0F"
-              color="white"
-              _hover={{ bg: "#1c1c1c" }}
-              borderRadius="full"
-              width="100%"
+              size="sm"
+              variant="outline"
+              borderColor="rgba(0,0,0,0.14)"
+              bg="rgba(255,255,255,0.65)"
+              onClick={() => setVariant(Date.now())}
             >
-              Войти в кабинет
+              Другие
             </Button>
-            <Text fontSize="xs" color="#4a4a4a">
-              Или войти через
-            </Text>
-            <Flex gap="2">
-              {["F", "vk", "tg", "m", ""].map((s) => (
-                <Box
-                  key={s}
-                  w="9"
-                  h="9"
-                  borderRadius="full"
-                  border="1px solid #0F0F0F"
-                  bg="white"
-                  display="grid"
-                  placeItems="center"
-                  fontSize="xs"
-                >
-                  {s}
-                </Box>
-              ))}
-            </Flex>
-            <Text fontSize="xs" color="#4a4a4a">
-              Еще нет аккаунта? <u>Зарегистрируйтесь</u>
-            </Text>
-          </Stack>
+            <Box
+              w="10"
+              h="10"
+              borderRadius="full"
+              bg="rgba(255,255,255,0.65)"
+              display="grid"
+              placeItems="center"
+              fontSize="lg"
+              color="rgba(0,0,0,0.65)"
+            >
+              ⌕
+            </Box>
+            <Box
+              w="10"
+              h="10"
+              borderRadius="full"
+              bg="rgba(255,255,255,0.65)"
+              display="grid"
+              placeItems="center"
+              fontSize="lg"
+              color="rgba(0,0,0,0.65)"
+            >
+              ⋯
+            </Box>
+          </Flex>
+        </Flex>
+
+        <Box position="relative" minH="520px" mt="0">
+          {loading ? (
+            <Text color="rgba(0,0,0,0.55)">Загружаем…</Text>
+          ) : preview.length < 3 ? (
+            <Box
+              borderRadius="2xl"
+              bg="rgba(255,255,255,0.6)"
+              border="1px solid rgba(0,0,0,0.08)"
+              p="4"
+            >
+              <Text fontWeight="semibold">Недостаточно постов с картинками</Text>
+              <Text fontSize="sm" color="rgba(0,0,0,0.6)" mt="1">
+                Нажми «Забрать из TG», затем вернись сюда.
+              </Text>
+              <RouterLink to="/feed">
+                <Button mt="3" bg="#0F0F0F" color="white">
+                  Перейти в ленту
+                </Button>
+              </RouterLink>
+            </Box>
+          ) : (
+            <>
+              {/* Back/base card */}
+              {(() => {
+                const p = preview[0]
+                const rec = aiRecommendation(p.card)
+                return (
+                  <Box
+                    position="absolute"
+                    left="0"
+                    right="0"
+                    top="10px"
+                    mx="auto"
+                    width="92%"
+                    borderRadius="2xl"
+                    overflow="hidden"
+                    bg="white"
+                    border="1px solid rgba(0,0,0,0.10)"
+                    boxShadow="0 20px 40px rgba(0,0,0,0.12)"
+                    transform="rotate(-2.5deg)"
+                  >
+                    <Box p="4">
+                      <Flex align="center" gap="2" mb="2">
+                        <Box w="7" h="7" borderRadius="full" bg="rgba(0,0,0,0.08)" display="grid" placeItems="center">
+                          🤖
+                        </Box>
+                        <Text fontSize="xs" fontWeight="semibold" color="rgba(0,0,0,0.75)">
+                          {rec.author}
+                        </Text>
+                        <Text fontSize="xs" color="rgba(0,0,0,0.45)">
+                          • {rec.meta}
+                        </Text>
+                      </Flex>
+                      <Text fontSize="lg" fontWeight="semibold" lineHeight="1.1">
+                        {rec.text}
+                      </Text>
+                      <Text fontSize="xs" color="rgba(0,0,0,0.55)" mt="2">
+                        {p.card.channel} • #{p.card.message_id}
+                      </Text>
+                    </Box>
+                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="220px" objectFit="cover" /> : null}
+                  </Box>
+                )
+              })()}
+
+              {/* Middle card */}
+              {(() => {
+                const p = preview[1]
+                const rec = aiRecommendation(p.card)
+                return (
+                  <Box
+                    position="absolute"
+                    right="-6px"
+                    top="105px"
+                    width="78%"
+                    borderRadius="2xl"
+                    overflow="hidden"
+                    bg="#F4A8DE"
+                    border="1px solid rgba(0,0,0,0.10)"
+                    boxShadow="0 22px 42px rgba(0,0,0,0.14)"
+                    transform="rotate(10deg)"
+                    className="tg-float-1"
+                    style={{ animationDuration: "7.5s", animationDelay: "-1.2s" }}
+                  >
+                    <Box p="4">
+                      <Flex align="center" gap="2" mb="2">
+                        <Box w="6" h="6" borderRadius="full" bg="rgba(0,0,0,0.10)" display="grid" placeItems="center">
+                          🤖
+                        </Box>
+                        <Text fontSize="xs" fontWeight="semibold" color="rgba(0,0,0,0.75)">
+                          {rec.author}
+                        </Text>
+                        <Text fontSize="xs" color="rgba(0,0,0,0.45)">
+                          • {rec.meta}
+                        </Text>
+                      </Flex>
+                      <Text fontSize="md" fontWeight="semibold" lineHeight="1.15">
+                        {rec.text.slice(0, 115)}
+                      </Text>
+                      <Text fontSize="xs" color="rgba(0,0,0,0.6)" mt="2">
+                        {p.card.channel} • #{p.card.message_id}
+                      </Text>
+                    </Box>
+                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="160px" objectFit="cover" /> : null}
+                  </Box>
+                )
+              })()}
+
+              {/* Front card */}
+              {(() => {
+                const p = preview[2]
+                const rec = aiRecommendation(p.card)
+                return (
+                  <Box
+                    position="absolute"
+                    left="-4px"
+                    top="225px"
+                    width="84%"
+                    borderRadius="2xl"
+                    overflow="hidden"
+                    bg="#3ED47C"
+                    border="1px solid rgba(0,0,0,0.10)"
+                    boxShadow="0 22px 42px rgba(0,0,0,0.14)"
+                    transform="rotate(-12deg)"
+                    className="tg-float-2"
+                    style={{ animationDuration: "8.1s", animationDelay: "-0.6s" }}
+                  >
+                    <Box p="4">
+                      <Flex align="center" gap="2" mb="2">
+                        <Box w="6" h="6" borderRadius="full" bg="rgba(0,0,0,0.10)" display="grid" placeItems="center">
+                          🤖
+                        </Box>
+                        <Text fontSize="xs" fontWeight="semibold" color="rgba(0,0,0,0.75)">
+                          {rec.author}
+                        </Text>
+                        <Text fontSize="xs" color="rgba(0,0,0,0.45)">
+                          • {rec.meta}
+                        </Text>
+                      </Flex>
+                      <Text fontSize="md" fontWeight="semibold" lineHeight="1.15">
+                        {rec.text.slice(0, 115)}
+                      </Text>
+                      <Text fontSize="xs" color="rgba(0,0,0,0.6)" mt="2">
+                        {p.card.channel} • #{p.card.message_id}
+                      </Text>
+                    </Box>
+                    {p.img ? <Image src={p.img} alt={p.card.title} width="100%" height="160px" objectFit="cover" /> : null}
+                  </Box>
+                )
+              })()}
+            </>
+          )}
         </Box>
 
+        <RouterLink to="/feed">
+          <Button bg="#0F0F0F" color="white" borderRadius="full">
+            Открыть ленту
+          </Button>
+        </RouterLink>
       </Stack>
     </Box>
   )
