@@ -19,7 +19,11 @@ class TelegramPollingService:
     async def run(self) -> None:
         while not self._stopped.is_set():
             try:
-                await self._ingestor.fetch_recent(limit=50)
+                await self._ingestor.fetch_recent(
+                    per_channel_limit=5,
+                    pause_between_channels_seconds=max(0.5, float(self._interval) / 10.0),
+                    pause_between_messages_seconds=0.05,
+                )
             except AccessTokenInvalidError:
                 logger.error("Polling stopped: invalid bot token")
                 break

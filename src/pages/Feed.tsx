@@ -75,7 +75,10 @@ export default function Feed() {
     setSyncing(true)
     setSyncError(null)
     try {
-      const res = await fetch(`${apiUrl}/debug/telegram-fetch-recent?limit=30`, { method: "POST" })
+      const res = await fetch(
+        `${apiUrl}/debug/telegram-fetch-recent?per_channel_limit=5&pause_between_channels_seconds=1.2&pause_between_messages_seconds=0.05`,
+        { method: "POST" },
+      )
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { detail?: unknown } | null
         const detail = payload && typeof payload.detail === "string" ? payload.detail : null
@@ -113,10 +116,10 @@ export default function Feed() {
             <Badge borderRadius="full" px="3" py="1" bg="#111" color="white">
               Москва
             </Badge>
-            <Button size="xs" variant="outline" borderColor="#0F0F0F" onClick={load} isLoading={loading}>
+            <Button size="xs" variant="outline" borderColor="#0F0F0F" onClick={load} loading={loading}>
               Обновить
             </Button>
-            <Button size="xs" bg="#0F0F0F" color="white" onClick={syncFromTelegram} isLoading={syncing}>
+            <Button size="xs" bg="#0F0F0F" color="white" onClick={syncFromTelegram} loading={syncing}>
               Забрать из TG
             </Button>
           </Flex>

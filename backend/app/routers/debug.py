@@ -53,7 +53,9 @@ def _get_events_repo(request: Request) -> EventsRepository:
 @router.post("/telegram-fetch-recent")
 async def telegram_fetch_recent(
     request: Request,
-    limit: int = Query(20, ge=1, le=200),
+    per_channel_limit: int = Query(5, ge=1, le=50),
+    pause_between_channels_seconds: float = Query(1.0, ge=0.0, le=10.0),
+    pause_between_messages_seconds: float = Query(0.0, ge=0.0, le=2.0),
     login_mode: str | None = Query(default=None, description="Override: bot | user"),
 ) -> dict[str, object]:
     settings = Settings()
@@ -62,11 +64,18 @@ async def telegram_fetch_recent(
     repo = _get_events_repo(request)
     ingestor = TelegramIngestor(settings=settings, repo=repo)
     try:
-        await ingestor.fetch_recent(limit=limit)
+        result = await ingestor.fetch_recent(
+            per_channel_limit=per_channel_limit,
+            pause_between_channels_seconds=pause_between_channels_seconds,
+            pause_between_messages_seconds=pause_between_messages_seconds,
+        )
     except Exception as e:
         logger.exception("telegram_fetch_recent failed")
         raise HTTPException(status_code=500, detail=str(e)) from e
-    return {"status": "ok", "limit": limit, "channels": settings.telegram_channel_ids}
+    return {
+        "status": "ok",
+        "result": result,
+    }
 
 
 
