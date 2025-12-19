@@ -55,6 +55,8 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    volumes:
+      - tgapp_media:/app/media
     networks:
       - traefik-public
     labels:
@@ -120,6 +122,7 @@ networks:
 
 volumes:
   pgdata:
+  tgapp_media:
 
 
 

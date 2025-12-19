@@ -23,11 +23,9 @@ class TelegramIngestor:
     media_root: Path = Path(__file__).resolve().parents[2] / "media"
 
     def create_client(self) -> TelegramClient:
-        session = (
-            StringSession(self.settings.telegram_session_string)
-            if self.settings.telegram_session_string
-            else "tg_session"
-        )
+        session: StringSession | str = "tg_session"
+        if self.settings.telegram_login_mode != "bot" and self.settings.telegram_session_string:
+            session = StringSession(self.settings.telegram_session_string)
         return TelegramClient(
             session=session,
             api_id=self.settings.telegram_api_id,
