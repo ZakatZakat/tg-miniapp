@@ -48,6 +48,14 @@ class PostgresEventsRepository:
             records: Sequence[Event] = result.all()
             return [self._to_card(item) for item in records]
 
+    async def list_by_channel(self, channel: str, limit: int = 20) -> list[EventCard]:
+        async with self._session_factory() as session:
+            result = await session.scalars(
+                select(Event).where(Event.channel == channel).order_by(Event.created_at.desc()).limit(limit)
+            )
+            records: Sequence[Event] = result.all()
+            return [self._to_card(item) for item in records]
+
     async def _find_by_channel_msg(self, session: AsyncSession, channel: str, message_id: int) -> Event | None:
         return await session.scalar(
             select(Event).where(Event.channel == channel).where(Event.message_id == message_id).limit(1)

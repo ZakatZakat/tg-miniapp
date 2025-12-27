@@ -20,6 +20,66 @@ type TelegramCreds = {
   bot_token_masked?: string | null
 }
 
+type Review = {
+  id: string
+  author: string
+  date: string
+  rating: number
+  body: string
+}
+
+const genericReviews: Review[] = [
+  {
+    id: "generic-1",
+    author: "Daniel, London",
+    date: "Feb 11",
+    rating: 4.5,
+    body: "Этот пост словно рядом: живой язык, интересные детали и момент заметного драйва.",
+  },
+  {
+    id: "generic-2",
+    author: "Kira, SPB",
+    date: "Aug 06",
+    rating: 4.2,
+    body: "Каждый раз, когда обновляется канал, хочется идти и проверять, что будет дальше.",
+  },
+  {
+    id: "generic-3",
+    author: "Leo, NL",
+    date: "Apr 28",
+    rating: 4.0,
+    body: "Подборка сбалансирована: есть и открытые анонсы, и уютные советы по площадкам.",
+  },
+]
+
+const reviewsByChannel: Record<string, Review[]> = {
+  "@afishadaily": [
+    {
+      id: "af1",
+      author: "Nina, Moscow",
+      date: "Mar 05",
+      rating: 4.8,
+      body: "Афиша чудовищно оперативна — обновления по утрам выглядят, как свежий дайджест.",
+    },
+    {
+      id: "af2",
+      author: "Anton, UA",
+      date: "Jan 22",
+      rating: 4.6,
+      body: "Описание событий хорошо структурировано и помогает выбрать, чем заняться.",
+    },
+  ],
+  "@concerts_moscow": [
+    {
+      id: "cm1",
+      author: "Mila, SPB",
+      date: "Dec 14",
+      rating: 5.0,
+      body: "Тут все концерты, особенно электронная сцена — сложно пропустить, когда нужно планировать выходные.",
+    },
+  ],
+}
+
 const palette = ["#F9D7C3", "#FFEAB6", "#FFB4A8", "#B7FFD4", "#E6E0FF", "#E0F4FF"]
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
@@ -115,6 +175,9 @@ export default function Feed() {
   const [activeFilterKey, setActiveFilterKey] = React.useState<string>("all")
   const [selected, setSelected] = React.useState<EventCard | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const [relatedPosts, setRelatedPosts] = React.useState<EventCard[]>([])
+  const [relatedLoading, setRelatedLoading] = React.useState(false)
+  const [relatedError, setRelatedError] = React.useState<string | null>(null)
 
   const showDebug = React.useMemo(() => {
     if (typeof window === "undefined") return false
@@ -204,6 +267,47 @@ export default function Feed() {
   const selectedAiRating = React.useMemo(() => {
     if (!selected) return null
     return aiRatingForId(selected.id)
+  }, [selected])
+
+  const reviewsForChannel = React.useMemo(() => {
+    if (!selected) return genericReviews
+    return reviewsByChannel[selected.channel] ?? genericReviews
+  }, [selected])
+
+  React.useEffect(() => {
+    if (!selected) {
+      setRelatedPosts([])
+      setRelatedError(null)
+      setRelatedLoading(false)
+      return undefined
+    }
+    const controller = new AbortController()
+    setRelatedPosts([])
+    setRelatedError(null)
+    setRelatedLoading(true)
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${apiUrl}/events/channel/${encodeURIComponent(selected.channel)}?limit=6`,
+          { signal: controller.signal },
+        )
+        if (!res.ok) throw new Error(`status ${res.status}`)
+        const data: EventCard[] = await res.json()
+        if (controller.signal.aborted) return
+        const filtered = data.filter((card) => card.id !== selected.id)
+        console.log("relatedPosts for", selected.channel, filtered)
+        setRelatedPosts(filtered)
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setRelatedError(err instanceof Error ? err.message : "Не удалось загрузить посты")
+      } finally {
+        if (controller.signal.aborted) return
+        setRelatedLoading(false)
+      }
+    })()
+    return () => {
+      controller.abort()
+    }
   }, [selected])
 
   return (
@@ -464,7 +568,7 @@ export default function Feed() {
                   </Text>
                 </Dialog.Title>
               </Dialog.Header>
-              <Dialog.Body>
+              <Dialog.Body overflowY="auto" maxH="72vh">
                 <Stack gap="3">
                   <Box borderRadius="xl" overflow="hidden" border="1px solid rgba(0,0,0,0.10)">
                     {selectedImgSrc && selected && !failedImages[selected.id] ? (
@@ -510,6 +614,140 @@ export default function Feed() {
                   <Text fontSize="sm" color="rgba(0,0,0,0.85)" whiteSpace="pre-wrap">
                     {selectedBodyText}
                   </Text>
+
+                  <Box pt="2" mt="1" borderTop="1px solid rgba(0,0,0,0.10)">
+                    <Stack gap="4">
+                      <Box>
+                        <Text
+                          fontSize="xs"
+                          fontWeight="semibold"
+                          letterSpacing="0.2px"
+                          color="rgba(0,0,0,0.65)"
+                          mb="2"
+                        >
+                          Другие посты канала
+                        </Text>
+                        {relatedLoading ? (
+                          <Text fontSize="xs" color="rgba(0,0,0,0.55)">
+                            Загрузка других постов...
+                          </Text>
+                        ) : relatedError ? (
+                          <Text fontSize="xs" color="red.600">
+                            {relatedError}
+                          </Text>
+                        ) : relatedPosts.length ? (
+                          <Flex
+                            gap="3"
+                            overflowX="auto"
+                            pb="2"
+                            style={{
+                              WebkitOverflowScrolling: "touch",
+                              scrollbarWidth: "none",
+                            }}
+                            css={{
+                              "&::-webkit-scrollbar": { display: "none" },
+                            }}
+                          >
+                            {relatedPosts.map((post) => {
+                              const media = post.media_urls?.find((u) => isLikelyImageUrl(u)) ?? post.media_urls?.[0]
+                              const raw = media ? resolveMediaUrl(media, apiUrl) : null
+                              const imgSrc = raw && isLikelyImageUrl(raw) ? raw : null
+                              const preview = firstLine(post.title) || firstLine(post.description) || "Событие"
+                              return (
+                                <Box
+                                  key={post.id}
+                                  flex="0 0 auto"
+                                  width="150px"
+                                  borderRadius="2xl"
+                                  border="1px solid rgba(0,0,0,0.10)"
+                                  bg="white"
+                                  overflow="hidden"
+                                  cursor="pointer"
+                                  boxShadow="0 10px 24px rgba(0,0,0,0.08)"
+                                  onClick={() => openDetails(post)}
+                                >
+                                  {imgSrc ? (
+                                    <Box
+                                      bg="rgba(0,0,0,0.06)"
+                                      height="170px"
+                                      display="flex"
+                                      alignItems="center"
+                                      justifyContent="center"
+                                    >
+                                      <Image
+                                        src={imgSrc}
+                                        alt={preview}
+                                        maxW="100%"
+                                        maxH="100%"
+                                        objectFit="contain"
+                                      />
+                                    </Box>
+                                  ) : (
+                                    <Box bg="rgba(0,0,0,0.06)" height="170px" />
+                                  )}
+                                  <Box p="3">
+                                    <Text
+                                      fontSize="xs"
+                                      fontWeight="semibold"
+                                      lineHeight="1.25"
+                                      style={{
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 3,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      {preview}
+                                    </Text>
+                                  </Box>
+                                </Box>
+                              )
+                            })}
+                          </Flex>
+                        ) : (
+                          <Text fontSize="xs" color="rgba(0,0,0,0.5)">
+                            Пока нет других постов этого канала
+                          </Text>
+                        )}
+                      </Box>
+
+                      <Box>
+                        <Text
+                          fontSize="xs"
+                          fontWeight="semibold"
+                          letterSpacing="0.2px"
+                          color="rgba(0,0,0,0.65)"
+                          mb="2"
+                        >
+                          Отзывы
+                        </Text>
+                        <Stack gap="3">
+                          {reviewsForChannel.map((review) => (
+                            <Box
+                              key={review.id}
+                              borderRadius="xl"
+                              border="1px solid rgba(0,0,0,0.08)"
+                              bg="rgba(0,0,0,0.02)"
+                              p="3"
+                            >
+                              <Flex align="center" justify="space-between" mb="2">
+                                <Text fontSize="xs" fontWeight="semibold">
+                                  {review.author}
+                                </Text>
+                                <Text fontSize="xs" color="rgba(0,0,0,0.45)">
+                                  {review.date}
+                                </Text>
+                              </Flex>
+                              <StarRating value={review.rating} />
+                              <Text fontSize="xs" color="rgba(0,0,0,0.65)" mt="2">
+                                {review.body}
+                              </Text>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    </Stack>
+                  </Box>
                 </Stack>
               </Dialog.Body>
               <Dialog.Footer>

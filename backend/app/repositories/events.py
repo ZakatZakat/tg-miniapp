@@ -12,6 +12,8 @@ class EventsRepository(Protocol):
 
     async def list_recent(self, limit: int = 50) -> list[EventCard]: ...
 
+    async def list_by_channel(self, channel: str, limit: int = 20) -> list[EventCard]: ...
+
 
 class InMemoryEventsRepository(EventsRepository):
     def __init__(self) -> None:
@@ -40,6 +42,18 @@ class InMemoryEventsRepository(EventsRepository):
 
     async def list_recent(self, limit: int = 50) -> list[EventCard]:
         return sorted(self._store.values(), key=lambda item: item.created_at, reverse=True)[:limit]
+
+    async def list_by_channel(self, channel: str, limit: int = 20) -> list[EventCard]:
+        filtered = [card for card in self._store.values() if card.channel == channel]
+        sorted_cards = sorted(filtered, key=lambda item: item.created_at, reverse=True)
+        return sorted_cards[:limit]
+
+    def _find_by_channel_msg(self, channel: str, message_id: int) -> EventCard | None:
+        for card in self._store.values():
+            if card.channel == channel and card.message_id == message_id:
+                return card
+        return None
+
 
     def _find_by_channel_msg(self, channel: str, message_id: int) -> EventCard | None:
         for card in self._store.values():

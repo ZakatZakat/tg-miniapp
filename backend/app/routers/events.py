@@ -21,3 +21,21 @@ async def list_events(repo: EventsRepository = Depends(get_repo), limit: int = Q
 async def ingest_event(payload: EventIngestRequest, repo: EventsRepository = Depends(get_repo)) -> EventCard:
     return await repo.upsert(payload)
 
+
+@router.get("/channel/{channel}", response_model=list[EventCard])
+async def list_channel_events(
+    channel: str,
+    repo: EventsRepository = Depends(get_repo),
+    limit: int = Query(20, ge=1, le=200),
+) -> list[EventCard]:
+    return await repo.list_by_channel(channel=channel, limit=limit)
+
+
+@router.get("/channel/{channel}", response_model=list[EventCard])
+async def list_channel_events(
+    channel: str,
+    repo: EventsRepository = Depends(get_repo),
+    limit: int = Query(20, ge=1, le=200),
+) -> list[EventCard]:
+    return await repo.list_by_channel(channel=channel, limit=limit)
+
