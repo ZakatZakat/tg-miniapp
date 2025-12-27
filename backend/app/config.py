@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import List
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,33 +13,33 @@ DEFAULT_TELEGRAM_CHANNEL_IDS = "\n".join(
         "@mskgigs",
         "@northerntechno",
         "@dancewithus",
-        "@free_concerts",
-        "@chirik_chiric",
-        "@blankclub",
-        "@maingig",
-        "@spb_conc",
-        "@Vspiskah",
-        "@kastry_fest",
-        "@svobodaconcerthall",
-        "@voicemedia",
-        "@rndmtoday",
-        "@mskevents_ru",
-        "@spbgigs",
-        "@rupor_msk",
-        "@spbeventsru",
-        "@digest_msk",
-        "@afishakontramarka",
-        "@est_prohodka",
-        "@saint_afisha",
-        "@produsserka",
-        "@rupor_events_spb",
-        "@afisha_36",
-        "@mainfest",
-        "@metalafisha",
-        "@rock63ru",
-        "@rupor_ekb",
-        "@rassvetperm",
-        "@JazzClub32",
+        # "@free_concerts",
+        # "@chirik_chiric",
+        # "@blankclub",
+        # "@maingig",
+        # "@spb_conc",
+        # "@Vspiskah",
+        # "@kastry_fest",
+        # "@svobodaconcerthall",
+        # "@voicemedia",
+        # "@rndmtoday",
+        # "@mskevents_ru",
+        # "@spbgigs",
+        # "@rupor_msk",
+        # "@spbeventsru",
+        # "@digest_msk",
+        # "@afishakontramarka",
+        # "@est_prohodka",
+        # "@saint_afisha",
+        # "@produsserka",
+        # "@rupor_events_spb",
+        # "@afisha_36",
+        # "@mainfest",
+        # "@metalafisha",
+        # "@rock63ru",
+        # "@rupor_ekb",
+        # "@rassvetperm",
+        # "@JazzClub32",
     ]
 )
 
@@ -52,7 +50,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_login_mode: str = Field("bot", alias="TELEGRAM_LOGIN_MODE")  # bot | user
     telegram_session_string: str | None = Field(default=None, alias="TELEGRAM_SESSION_STRING")
-    telegram_channel_ids_raw: str = Field(DEFAULT_TELEGRAM_CHANNEL_IDS, alias="TELEGRAM_CHANNEL_IDS")
+    telegram_channel_ids_raw: str = Field(DEFAULT_TELEGRAM_CHANNEL_IDS)
     telegram_polling_enabled: bool = Field(False, alias="TELEGRAM_POLLING_ENABLED")
 
     redis_url: str = Field(..., alias="REDIS_URL")

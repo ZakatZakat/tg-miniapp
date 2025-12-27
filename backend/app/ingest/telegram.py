@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable
 
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError, FileMigrateError
 from telethon.sessions import StringSession
 from telethon.tl.types import Message
 
@@ -123,8 +123,36 @@ class TelegramIngestor:
             suffix = ".jpg"
         filename = f"{message.peer_id.channel_id if getattr(message.peer_id, 'channel_id', None) else 'ch'}_{message.id}{suffix}"
         dest = self.media_root / filename
-        path = await client.download_media(message, file=str(dest))
-        if path:
-            urls.append(f"/media/{Path(path).name}")
+        max_attempts = 5
+        base_sleep = 0.4
+        for attempt in range(1, max_attempts + 1):
+            try:
+                path = await client.download_media(message, file=str(dest))
+                if path:
+                    urls.append(f"/media/{Path(path).name}")
+                break
+            except (FileMigrateError, TimeoutError) as exc:  # type: ignore[name-defined]
+                if attempt == max_attempts:
+                    logger.warning(
+                        "Media download failed after %s attempts for channel=%s message=%s: %s",
+                        attempt,
+                        message.peer_id,
+                        message.id,
+                        exc,
+                    )
+                    break
+                delay = base_sleep * (2 ** (attempt - 1))
+                logger.warning(
+                    "Retrying media download (attempt %s/%s) for channel=%s message=%s after %s",
+                    attempt + 1,
+                    max_attempts,
+                    message.peer_id,
+                    message.id,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+            except Exception:
+                logger.exception("Unexpected failure while downloading media for channel=%s message=%s", message.peer_id, message.id)
+                break
         return urls
 
