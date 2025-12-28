@@ -551,7 +551,7 @@ export default function Feed() {
 
       <Dialog.Root open={detailsOpen} onOpenChange={(d) => setDetailsOpen(d.open)}>
         <Portal>
-          <Dialog.Backdrop />
+          <Dialog.Backdrop bg="rgba(255,255,255,0.55)" backdropFilter="blur(8px)" />
           <Dialog.Positioner>
             <Dialog.Content
               borderRadius="2xl"
@@ -559,6 +559,8 @@ export default function Feed() {
               maxW="min(92vw, 420px)"
               mx="auto"
               boxShadow="0 24px 60px rgba(0,0,0,0.28)"
+              bg="#FFFFFF"
+              color="#0F0F0F"
             >
               <Dialog.CloseTrigger />
               <Dialog.Header>
