@@ -12,7 +12,6 @@ const ROUTES = [
   { label: "Landing", to: "/" },
   { label: "Landing 2", to: "/landing-2" },
   { label: "Landing 3", to: "/landing-3" },
-  { label: "Landing 5", to: "/landing-5" },
   { label: "Landing 6", to: "/landing-6" },
   { label: "Feed", to: "/feed" },
   { label: "About", to: "/about" },
